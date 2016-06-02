@@ -212,7 +212,7 @@ void zfree(void *ptr) {
 
 char *zstrdup(const char *s) {
     size_t l = strlen(s)+1;
-    char *p = zmalloc(l);
+    char *p = (char*)zmalloc(l);
 
     memcpy(p,s,l);
     return p;
@@ -335,7 +335,7 @@ float zmalloc_get_fragmentation_ratio(size_t rss) {
  * Example: zmalloc_get_smap_bytes_by_field("Rss:");
  */
 #if defined(HAVE_PROC_SMAPS)
-size_t zmalloc_get_smap_bytes_by_field(char *field) {
+size_t zmalloc_get_smap_bytes_by_field(const char *field) {
     char line[1024];
     size_t bytes = 0;
     FILE *fp = fopen("/proc/self/smaps","r");
@@ -355,7 +355,7 @@ size_t zmalloc_get_smap_bytes_by_field(char *field) {
     return bytes;
 }
 #else
-size_t zmalloc_get_smap_bytes_by_field(char *field) {
+size_t zmalloc_get_smap_bytes_by_field(const char *field) {
     ((void) field);
     return 0;
 }

@@ -30,7 +30,12 @@
 
 #ifndef __INTSET_H
 #define __INTSET_H
+
+#ifdef __cplusplus
+#include <cstdint>
+#else
 #include <stdint.h>
+#endif
 
 typedef struct intset {
     uint32_t encoding;

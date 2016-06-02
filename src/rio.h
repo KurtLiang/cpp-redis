@@ -33,7 +33,11 @@
 #define __REDIS_RIO_H
 
 #include <stdio.h>
+#ifdef __cplusplus
+#include <cstdint>
+#else
 #include <stdint.h>
+#endif
 #include "sds.h"
 
 struct _rio {

@@ -33,7 +33,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+#ifdef __cplusplus
+#include <cstdint>
+#else
 #include <stdint.h>
+#endif
 
 #ifndef __DICT_H
 #define __DICT_H

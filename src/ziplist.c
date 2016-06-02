@@ -104,7 +104,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __cplusplus
+#include <cstdint>
+#else
 #include <stdint.h>
+#endif
 #include <limits.h>
 #include "zmalloc.h"
 #include "util.h"
@@ -425,7 +429,7 @@ static void zipEntry(unsigned char *p, zlentry *e) {
 /* Create a new empty ziplist. */
 unsigned char *ziplistNew(void) {
     unsigned int bytes = ZIPLIST_HEADER_SIZE+1;
-    unsigned char *zl = zmalloc(bytes);
+    unsigned char *zl = (unsigned char*)zmalloc(bytes);
     ZIPLIST_BYTES(zl) = intrev32ifbe(bytes);
     ZIPLIST_TAIL_OFFSET(zl) = intrev32ifbe(ZIPLIST_HEADER_SIZE);
     ZIPLIST_LENGTH(zl) = 0;
@@ -435,7 +439,7 @@ unsigned char *ziplistNew(void) {
 
 /* Resize the ziplist. */
 static unsigned char *ziplistResize(unsigned char *zl, unsigned int len) {
-    zl = zrealloc(zl,len);
+    zl = (unsigned char*)zrealloc(zl,len);
     ZIPLIST_BYTES(zl) = intrev32ifbe(len);
     zl[len-1] = ZIP_END;
     return zl;
@@ -738,7 +742,7 @@ unsigned char *ziplistMerge(unsigned char **first, unsigned char **second) {
     size_t second_offset = intrev32ifbe(ZIPLIST_TAIL_OFFSET(*second));
 
     /* Extend target to new zlbytes then append or prepend source. */
-    target = zrealloc(target, zlbytes);
+    target = (unsigned char*)zrealloc(target, zlbytes);
     if (append) {
         /* append == appending to target */
         /* Copy source after target (copying over original [END]):

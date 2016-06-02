@@ -46,7 +46,7 @@ size_t sdsZmallocSize(sds s) {
 size_t getStringObjectSdsUsedMemory(robj *o) {
     serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
     switch(o->encoding) {
-    case OBJ_ENCODING_RAW: return sdsZmallocSize(o->ptr);
+    case OBJ_ENCODING_RAW: return sdsZmallocSize((sds)o->ptr);
     case OBJ_ENCODING_EMBSTR: return zmalloc_size(o)-sizeof(robj);
     default: return 0; /* Just integer encoding for now. */
     }
@@ -58,11 +58,11 @@ void *dupClientReplyValue(void *o) {
 }
 
 int listMatchObjects(void *a, void *b) {
-    return equalStringObjects(a,b);
+    return equalStringObjects((robj*)a, (robj*)b);
 }
 
 client *createClient(int fd) {
-    client *c = zmalloc(sizeof(client));
+    client *c = (client*)zmalloc(sizeof(client));
 
     /* passing -1 as fd it is possible to create a non connected client.
      * This is useful since all the commands needs to be executed
@@ -192,17 +192,17 @@ int prepareClientToWrite(client *c) {
 /* Create a duplicate of the last object in the reply list when
  * it is not exclusively owned by the reply list. */
 robj *dupLastObjectIfNeeded(list *reply) {
-    robj *new, *cur;
+    robj *dup, *cur;
     listNode *ln;
     serverAssert(listLength(reply) > 0);
     ln = listLast(reply);
-    cur = listNodeValue(ln);
+    cur = (robj*)listNodeValue(ln);
     if (cur->refcount > 1) {
-        new = dupStringObject(cur);
+        dup = dupStringObject(cur);
         decrRefCount(cur);
-        listNodeValue(ln) = new;
+        listNodeValue(ln) = dup;
     }
-    return listNodeValue(ln);
+    return (robj*)listNodeValue(ln);
 }
 
 /* -----------------------------------------------------------------------------
@@ -236,17 +236,17 @@ void _addReplyObjectToList(client *c, robj *o) {
         listAddNodeTail(c->reply,o);
         c->reply_bytes += getStringObjectSdsUsedMemory(o);
     } else {
-        tail = listNodeValue(listLast(c->reply));
+        tail = (robj*)listNodeValue(listLast(c->reply));
 
         /* Append to this object when possible. */
         if (tail->ptr != NULL &&
             tail->encoding == OBJ_ENCODING_RAW &&
-            sdslen(tail->ptr)+sdslen(o->ptr) <= PROTO_REPLY_CHUNK_BYTES)
+            sdslen((sds)tail->ptr)+sdslen((sds)o->ptr) <= PROTO_REPLY_CHUNK_BYTES)
         {
-            c->reply_bytes -= sdsZmallocSize(tail->ptr);
+            c->reply_bytes -= sdsZmallocSize((sds)tail->ptr);
             tail = dupLastObjectIfNeeded(c->reply);
-            tail->ptr = sdscatlen(tail->ptr,o->ptr,sdslen(o->ptr));
-            c->reply_bytes += sdsZmallocSize(tail->ptr);
+            tail->ptr = sdscatlen((sds)tail->ptr,o->ptr,sdslen((sds)o->ptr));
+            c->reply_bytes += sdsZmallocSize((sds)tail->ptr);
         } else {
             incrRefCount(o);
             listAddNodeTail(c->reply,o);
@@ -270,16 +270,16 @@ void _addReplySdsToList(client *c, sds s) {
         listAddNodeTail(c->reply,createObject(OBJ_STRING,s));
         c->reply_bytes += sdsZmallocSize(s);
     } else {
-        tail = listNodeValue(listLast(c->reply));
+        tail = (robj*)listNodeValue(listLast(c->reply));
 
         /* Append to this object when possible. */
         if (tail->ptr != NULL && tail->encoding == OBJ_ENCODING_RAW &&
-            sdslen(tail->ptr)+sdslen(s) <= PROTO_REPLY_CHUNK_BYTES)
+            sdslen((sds)tail->ptr)+sdslen(s) <= PROTO_REPLY_CHUNK_BYTES)
         {
-            c->reply_bytes -= sdsZmallocSize(tail->ptr);
+            c->reply_bytes -= sdsZmallocSize((sds)tail->ptr);
             tail = dupLastObjectIfNeeded(c->reply);
-            tail->ptr = sdscatlen(tail->ptr,s,sdslen(s));
-            c->reply_bytes += sdsZmallocSize(tail->ptr);
+            tail->ptr = sdscatlen((sds)tail->ptr,s,sdslen(s));
+            c->reply_bytes += sdsZmallocSize((sds)tail->ptr);
             sdsfree(s);
         } else {
             listAddNodeTail(c->reply,createObject(OBJ_STRING,s));
@@ -300,16 +300,16 @@ void _addReplyStringToList(client *c, const char *s, size_t len) {
         listAddNodeTail(c->reply,o);
         c->reply_bytes += getStringObjectSdsUsedMemory(o);
     } else {
-        tail = listNodeValue(listLast(c->reply));
+        tail = (robj*)listNodeValue(listLast(c->reply));
 
         /* Append to this object when possible. */
         if (tail->ptr != NULL && tail->encoding == OBJ_ENCODING_RAW &&
-            sdslen(tail->ptr)+len <= PROTO_REPLY_CHUNK_BYTES)
+            sdslen((sds)tail->ptr)+len <= PROTO_REPLY_CHUNK_BYTES)
         {
-            c->reply_bytes -= sdsZmallocSize(tail->ptr);
+            c->reply_bytes -= sdsZmallocSize((sds)tail->ptr);
             tail = dupLastObjectIfNeeded(c->reply);
-            tail->ptr = sdscatlen(tail->ptr,s,len);
-            c->reply_bytes += sdsZmallocSize(tail->ptr);
+            tail->ptr = sdscatlen((sds)tail->ptr,s,len);
+            c->reply_bytes += sdsZmallocSize((sds)tail->ptr);
         } else {
             robj *o = createStringObject(s,len);
 
@@ -336,7 +336,7 @@ void addReply(client *c, robj *obj) {
      * we'll be able to send the object to the client without
      * messing with its page. */
     if (sdsEncodedObject(obj)) {
-        if (_addReplyToBuffer(c,obj->ptr,sdslen(obj->ptr)) != C_OK)
+        if (_addReplyToBuffer(c,(const char*)obj->ptr,sdslen((sds)obj->ptr)) != C_OK)
             _addReplyObjectToList(c,obj);
     } else if (obj->encoding == OBJ_ENCODING_INT) {
         /* Optimization: if there is room in the static buffer for 32 bytes
@@ -353,7 +353,7 @@ void addReply(client *c, robj *obj) {
              * happen actually since we verified there is room. */
         }
         obj = getDecodedObject(obj);
-        if (_addReplyToBuffer(c,obj->ptr,sdslen(obj->ptr)) != C_OK)
+        if (_addReplyToBuffer(c,(const char*)obj->ptr,sdslen((sds)obj->ptr)) != C_OK)
             _addReplyObjectToList(c,obj);
         decrRefCount(obj);
     } else {
@@ -445,19 +445,19 @@ void setDeferredMultiBulkLength(client *c, void *node, long length) {
     /* Abort when *node is NULL (see addDeferredMultiBulkLength). */
     if (node == NULL) return;
 
-    len = listNodeValue(ln);
+    len = (robj*)listNodeValue(ln);
     len->ptr = sdscatprintf(sdsempty(),"*%ld\r\n",length);
     len->encoding = OBJ_ENCODING_RAW; /* in case it was an EMBSTR. */
-    c->reply_bytes += sdsZmallocSize(len->ptr);
+    c->reply_bytes += sdsZmallocSize((sds)len->ptr);
     if (ln->next != NULL) {
-        next = listNodeValue(ln->next);
+        next = (robj*)listNodeValue(ln->next);
 
         /* Only glue when the next node is non-NULL (an sds in this case) */
         if (next->ptr != NULL) {
-            c->reply_bytes -= sdsZmallocSize(len->ptr);
+            c->reply_bytes -= sdsZmallocSize((sds)len->ptr);
             c->reply_bytes -= getStringObjectSdsUsedMemory(next);
-            len->ptr = sdscatlen(len->ptr,next->ptr,sdslen(next->ptr));
-            c->reply_bytes += sdsZmallocSize(len->ptr);
+            len->ptr = sdscatlen((sds)len->ptr,next->ptr,sdslen((sds)next->ptr));
+            c->reply_bytes += sdsZmallocSize((sds)len->ptr);
             listDelNode(c->reply,ln->next);
         }
     }
@@ -533,7 +533,7 @@ void addReplyBulkLen(client *c, robj *obj) {
     size_t len;
 
     if (sdsEncodedObject(obj)) {
-        len = sdslen(obj->ptr);
+        len = sdslen((sds)obj->ptr);
     } else {
         long n = (long)obj->ptr;
 
@@ -564,7 +564,7 @@ void addReplyBulk(client *c, robj *obj) {
 /* Add a C buffer as bulk reply */
 void addReplyBulkCBuffer(client *c, const void *p, size_t len) {
     addReplyLongLongWithPrefix(c,len,'$');
-    addReplyString(c,p,len);
+    addReplyString(c,(const char*)p,len);
     addReply(c,shared.crlf);
 }
 
@@ -888,7 +888,7 @@ void freeClientAsync(client *c) {
 void freeClientsInAsyncFreeQueue(void) {
     while (listLength(server.clients_to_close)) {
         listNode *ln = listFirst(server.clients_to_close);
-        client *c = listNodeValue(ln);
+        client *c = (client*)listNodeValue(ln);
 
         c->flags &= ~CLIENT_CLOSE_ASAP;
         freeClient(c);
@@ -918,8 +918,8 @@ int writeToClient(int fd, client *c, int handler_installed) {
                 c->sentlen = 0;
             }
         } else {
-            o = listNodeValue(listFirst(c->reply));
-            objlen = sdslen(o->ptr);
+            o = (robj*)listNodeValue(listFirst(c->reply));
+            objlen = sdslen((sds)o->ptr);
             objmem = getStringObjectSdsUsedMemory(o);
 
             if (objlen == 0) {
@@ -987,7 +987,7 @@ int writeToClient(int fd, client *c, int handler_installed) {
 void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     UNUSED(el);
     UNUSED(mask);
-    writeToClient(fd,privdata,1);
+    writeToClient(fd,(client*)privdata,1);
 }
 
 /* This function is called just before entering the event loop, in the hope
@@ -1001,7 +1001,7 @@ int handleClientsWithPendingWrites(void) {
 
     listRewind(server.clients_pending_write,&li);
     while((ln = listNext(&li))) {
-        client *c = listNodeValue(ln);
+        client *c = (client*)listNodeValue(ln);
         c->flags &= ~CLIENT_PENDING_WRITE;
         listDelNode(server.clients_pending_write,ln);
 
@@ -1089,7 +1089,7 @@ int processInlineBuffer(client *c) {
     /* Setup argv array on client structure */
     if (argc) {
         if (c->argv) zfree(c->argv);
-        c->argv = zmalloc(sizeof(robj*)*argc);
+        c->argv = (robj**)zmalloc(sizeof(robj*)*argc);
     }
 
     /* Create redis objects for all arguments. */
@@ -1161,7 +1161,7 @@ int processMultibulkBuffer(client *c) {
 
         /* Setup argv array on client structure */
         if (c->argv) zfree(c->argv);
-        c->argv = zmalloc(sizeof(robj*)*c->multibulklen);
+        c->argv = (robj**)zmalloc(sizeof(robj*)*c->multibulklen);
     }
 
     serverAssertWithInfo(c,NULL,c->multibulklen > 0);
@@ -1369,7 +1369,7 @@ void getClientsMaxBuffers(unsigned long *longest_output_list,
 
     listRewind(server.clients,&li);
     while ((ln = listNext(&li)) != NULL) {
-        c = listNodeValue(ln);
+        c = (client*)listNodeValue(ln);
 
         if (listLength(c->reply) > lol) lol = listLength(c->reply);
         if (sdslen(c->querybuf) > bib) bib = sdslen(c->querybuf);
@@ -1474,7 +1474,7 @@ sds getAllClientsInfoString(void) {
     sdsclear(o);
     listRewind(server.clients,&li);
     while ((ln = listNext(&li)) != NULL) {
-        client = listNodeValue(ln);
+        client = (struct client*)listNodeValue(ln);
         o = catClientInfoString(o,client);
         o = sdscatlen(o,"\n",1);
     }
@@ -1486,12 +1486,12 @@ void clientCommand(client *c) {
     listIter li;
     client *client;
 
-    if (!strcasecmp(c->argv[1]->ptr,"list") && c->argc == 2) {
+    if (!strcasecmp((const char*)c->argv[1]->ptr,"list") && c->argc == 2) {
         /* CLIENT LIST */
         sds o = getAllClientsInfoString();
         addReplyBulkCBuffer(c,o,sdslen(o));
         sdsfree(o);
-    } else if (!strcasecmp(c->argv[1]->ptr,"reply") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"reply") && c->argc == 3) {
         /* CLIENT REPLY ON|OFF|SKIP */
         if (!strcasecmp(c->argv[2]->ptr,"on")) {
             c->flags &= ~(CLIENT_REPLY_SKIP|CLIENT_REPLY_OFF);
@@ -1532,18 +1532,18 @@ void clientCommand(client *c) {
                         != C_OK) return;
                     id = tmp;
                 } else if (!strcasecmp(c->argv[i]->ptr,"type") && moreargs) {
-                    type = getClientTypeByName(c->argv[i+1]->ptr);
+                    type = getClientTypeByName((char*)c->argv[i+1]->ptr);
                     if (type == -1) {
                         addReplyErrorFormat(c,"Unknown client type '%s'",
                             (char*) c->argv[i+1]->ptr);
                         return;
                     }
-                } else if (!strcasecmp(c->argv[i]->ptr,"addr") && moreargs) {
-                    addr = c->argv[i+1]->ptr;
-                } else if (!strcasecmp(c->argv[i]->ptr,"skipme") && moreargs) {
-                    if (!strcasecmp(c->argv[i+1]->ptr,"yes")) {
+                } else if (!strcasecmp((const char*)c->argv[i]->ptr,"addr") && moreargs) {
+                    addr = (char*)c->argv[i+1]->ptr;
+                } else if (!strcasecmp((const char*)c->argv[i]->ptr,"skipme") && moreargs) {
+                    if (!strcasecmp((const char*)c->argv[i+1]->ptr,"yes")) {
                         skipme = 1;
-                    } else if (!strcasecmp(c->argv[i+1]->ptr,"no")) {
+                    } else if (!strcasecmp((const char*)c->argv[i+1]->ptr,"no")) {
                         skipme = 0;
                     } else {
                         addReply(c,shared.syntaxerr);
@@ -1563,7 +1563,7 @@ void clientCommand(client *c) {
         /* Iterate clients killing all the matching clients. */
         listRewind(server.clients,&li);
         while ((ln = listNext(&li)) != NULL) {
-            client = listNodeValue(ln);
+            client = (struct client*)listNodeValue(ln);
             if (addr && strcmp(getClientPeerId(client),addr) != 0) continue;
             if (type != -1 && getClientType(client) != type) continue;
             if (id != 0 && client->id != id) continue;
@@ -1591,7 +1591,7 @@ void clientCommand(client *c) {
         /* If this client has to be closed, flag it as CLOSE_AFTER_REPLY
          * only after we queued the reply to its output buffers. */
         if (close_this_client) c->flags |= CLIENT_CLOSE_AFTER_REPLY;
-    } else if (!strcasecmp(c->argv[1]->ptr,"setname") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"setname") && c->argc == 3) {
         int j, len = sdslen(c->argv[2]->ptr);
         char *p = c->argv[2]->ptr;
 
@@ -1644,7 +1644,7 @@ void rewriteClientCommandVector(client *c, int argc, ...) {
     int j;
     robj **argv; /* The new argument vector */
 
-    argv = zmalloc(sizeof(robj*)*argc);
+    argv = (robj**)zmalloc(sizeof(robj*)*argc);
     va_start(ap,argc);
     for (j = 0; j < argc; j++) {
         robj *a;
@@ -1661,7 +1661,7 @@ void rewriteClientCommandVector(client *c, int argc, ...) {
     /* Replace argv and argc with our new versions. */
     c->argv = argv;
     c->argc = argc;
-    c->cmd = lookupCommandOrOriginal(c->argv[0]->ptr);
+    c->cmd = lookupCommandOrOriginal((sds)c->argv[0]->ptr);
     serverAssertWithInfo(c,NULL,c->cmd != NULL);
     va_end(ap);
 }
@@ -1672,7 +1672,7 @@ void replaceClientCommandVector(client *c, int argc, robj **argv) {
     zfree(c->argv);
     c->argv = argv;
     c->argc = argc;
-    c->cmd = lookupCommandOrOriginal(c->argv[0]->ptr);
+    c->cmd = lookupCommandOrOriginal((sds)c->argv[0]->ptr);
     serverAssertWithInfo(c,NULL,c->cmd != NULL);
 }
 
@@ -1691,7 +1691,7 @@ void rewriteClientCommandArgument(client *c, int i, robj *newval) {
     robj *oldval;
 
     if (i >= c->argc) {
-        c->argv = zrealloc(c->argv,sizeof(robj*)*(i+1));
+        c->argv = (robj**)zrealloc(c->argv,sizeof(robj*)*(i+1));
         c->argc = i+1;
         c->argv[i] = NULL;
     }
@@ -1702,7 +1702,7 @@ void rewriteClientCommandArgument(client *c, int i, robj *newval) {
 
     /* If this is the command name make sure to fix c->cmd. */
     if (i == 0) {
-        c->cmd = lookupCommandOrOriginal(c->argv[0]->ptr);
+        c->cmd = lookupCommandOrOriginal((sds)c->argv[0]->ptr);
         serverAssertWithInfo(c,NULL,c->cmd != NULL);
     }
 }
@@ -1751,8 +1751,8 @@ int getClientTypeByName(char *name) {
     else return -1;
 }
 
-char *getClientTypeName(int class) {
-    switch(class) {
+char *getClientTypeName(int klass) {
+    switch(klass) {
     case CLIENT_TYPE_NORMAL: return "normal";
     case CLIENT_TYPE_SLAVE:  return "slave";
     case CLIENT_TYPE_PUBSUB: return "pubsub";
@@ -1768,19 +1768,19 @@ char *getClientTypeName(int class) {
  * Return value: non-zero if the client reached the soft or the hard limit.
  *               Otherwise zero is returned. */
 int checkClientOutputBufferLimits(client *c) {
-    int soft = 0, hard = 0, class;
+    int soft = 0, hard = 0, klass;
     unsigned long used_mem = getClientOutputBufferMemoryUsage(c);
 
-    class = getClientType(c);
+    klass = getClientType(c);
     /* For the purpose of output buffer limiting, masters are handled
      * like normal clients. */
-    if (class == CLIENT_TYPE_MASTER) class = CLIENT_TYPE_NORMAL;
+    if (klass == CLIENT_TYPE_MASTER) klass = CLIENT_TYPE_NORMAL;
 
-    if (server.client_obuf_limits[class].hard_limit_bytes &&
-        used_mem >= server.client_obuf_limits[class].hard_limit_bytes)
+    if (server.client_obuf_limits[klass].hard_limit_bytes &&
+        used_mem >= server.client_obuf_limits[klass].hard_limit_bytes)
         hard = 1;
-    if (server.client_obuf_limits[class].soft_limit_bytes &&
-        used_mem >= server.client_obuf_limits[class].soft_limit_bytes)
+    if (server.client_obuf_limits[klass].soft_limit_bytes &&
+        used_mem >= server.client_obuf_limits[klass].soft_limit_bytes)
         soft = 1;
 
     /* We need to check if the soft limit is reached continuously for the
@@ -1793,7 +1793,7 @@ int checkClientOutputBufferLimits(client *c) {
             time_t elapsed = server.unixtime - c->obuf_soft_limit_reached_time;
 
             if (elapsed <=
-                server.client_obuf_limits[class].soft_limit_seconds) {
+                server.client_obuf_limits[klass].soft_limit_seconds) {
                 soft = 0; /* The client still did not reached the max number of
                              seconds for the soft limit to be considered
                              reached. */
@@ -1834,7 +1834,7 @@ void flushSlavesOutputBuffers(void) {
 
     listRewind(server.slaves,&li);
     while((ln = listNext(&li))) {
-        client *slave = listNodeValue(ln);
+        client *slave = (client*)listNodeValue(ln);
         int events;
 
         /* Note that the following will not flush output buffers of slaves
@@ -1892,7 +1892,7 @@ int clientsArePaused(void) {
          * force the re-processing of the input buffer if any. */
         listRewind(server.clients,&li);
         while ((ln = listNext(&li)) != NULL) {
-            c = listNodeValue(ln);
+            c = (client*)listNodeValue(ln);
 
             /* Don't touch slaves and blocked clients. The latter pending
              * requests be processed when unblocked. */

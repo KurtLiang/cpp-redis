@@ -552,7 +552,7 @@ void debugCommand(client *c) {
 
 /* =========================== Crash handling  ============================== */
 
-void _serverAssert(char *estr, char *file, int line) {
+void _serverAssert(const char *estr, const char *file, int line) {
     bugReportStart();
     serverLog(LL_WARNING,"=== ASSERTION FAILED ===");
     serverLog(LL_WARNING,"==> %s:%d '%s' is not true",file,line,estr);
@@ -625,7 +625,7 @@ void _serverAssertWithInfo(client *c, robj *o, char *estr, char *file, int line)
     _serverAssert(estr,file,line);
 }
 
-void _serverPanic(char *msg, char *file, int line) {
+void _serverPanic(const char *msg, const char *file, int line) {
     bugReportStart();
     serverLog(LL_WARNING,"------------------------------------------------");
     serverLog(LL_WARNING,"!!! Software Failure. Press left mouse button to continue");

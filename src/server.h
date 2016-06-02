@@ -498,7 +498,7 @@ struct evictionPoolEntry {
  * by integers from 0 (the default database) up to the max configured
  * database. The database number is the 'id' field in the structure. */
 typedef struct redisDb {
-    dict *dict;                 /* The keyspace for this DB */
+    dict *dict_;                 /* The keyspace for this DB */
     dict *expires;              /* Timeout of keys with a timeout set */
     dict *blocking_keys;        /* Keys with clients waiting for data (BLPOP) */
     dict *ready_keys;           /* Blocked keys that received a PUSH */
@@ -648,7 +648,7 @@ typedef struct zskiplist {
 } zskiplist;
 
 typedef struct zset {
-    dict *dict;
+    dict *dict_;
     zskiplist *zsl;
 } zset;
 
@@ -962,8 +962,8 @@ struct redisServer {
     long long latency_monitor_threshold;
     dict *latency_events;
     /* Assert & bug reporting */
-    char *assert_failed;
-    char *assert_file;
+    const char *assert_failed;
+    const char *assert_file;
     int assert_line;
     int bug_report_start; /* True if bug report header was already logged. */
     int watchdog_period;  /* Software watchdog period in ms. 0 = off */
@@ -972,17 +972,17 @@ struct redisServer {
 };
 
 typedef struct pubsubPattern {
-    client *client;
+    client *client_;
     robj *pattern;
 } pubsubPattern;
 
 typedef void redisCommandProc(client *c);
 typedef int *redisGetKeysProc(struct redisCommand *cmd, robj **argv, int argc, int *numkeys);
 struct redisCommand {
-    char *name;
+    const char *name;
     redisCommandProc *proc;
     int arity;
-    char *sflags; /* Flags as string representation, one char per flag. */
+    const char *sflags; /* Flags as string representation, one char per flag. */
     int flags;    /* The actual flags, obtained from the 'sflags' field. */
     /* Use a function to determine keys arguments in a command line.
      * Used for Redis Cluster redirect. */
@@ -1122,7 +1122,7 @@ void freeClientsInAsyncFreeQueue(void);
 void asyncCloseClientOnOutputBufferLimitReached(client *c);
 int getClientType(client *c);
 int getClientTypeByName(char *name);
-char *getClientTypeName(int class);
+char *getClientTypeName(int klass);
 void flushSlavesOutputBuffers(void);
 void disconnectSlaves(void);
 int listenToPort(int port, int *fds, int *count);
@@ -1299,7 +1299,7 @@ int freeMemoryIfNeeded(void);
 int processCommand(client *c);
 void setupSignalHandlers(void);
 struct redisCommand *lookupCommand(sds name);
-struct redisCommand *lookupCommandByCString(char *s);
+struct redisCommand *lookupCommandByCString(const char *s);
 struct redisCommand *lookupCommandOrOriginal(sds name);
 void call(client *c, int flags);
 void propagate(struct redisCommand *cmd, int dbid, robj **argv, int argc, int flags);
@@ -1308,7 +1308,7 @@ void forceCommandPropagation(client *c, int flags);
 void preventCommandPropagation(client *c);
 void preventCommandAOF(client *c);
 void preventCommandReplication(client *c);
-int prepareForShutdown();
+int prepareForShutdown(int);
 #ifdef __GNUC__
 void serverLog(int level, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
@@ -1377,7 +1377,7 @@ int listMatchPubsubPattern(void *a, void *b);
 int pubsubPublishMessage(robj *channel, robj *message);
 
 /* Keyspace events notification */
-void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid);
+void notifyKeyspaceEvent(int type, const char *event, robj *key, int dbid);
 int keyspaceEventsStringToFlags(char *classes);
 sds keyspaceEventsFlagsToString(int flags);
 
@@ -1644,12 +1644,12 @@ void *realloc(void *ptr, size_t size) __attribute__ ((deprecated));
 
 /* Debugging stuff */
 void _serverAssertWithInfo(client *c, robj *o, char *estr, char *file, int line);
-void _serverAssert(char *estr, char *file, int line);
-void _serverPanic(char *msg, char *file, int line);
+void _serverAssert(const char *estr, const char *file, int line);
+void _serverPanic(const char *msg, const char *file, int line);
 void bugReportStart(void);
 void serverLogObjectDebugInfo(robj *o);
 void sigsegvHandler(int sig, siginfo_t *info, void *secret);
-sds genRedisInfoString(char *section);
+sds genRedisInfoString(const char *section);
 void enableWatchdog(int period);
 void disableWatchdog(void);
 void watchdogScheduleSignal(int period);

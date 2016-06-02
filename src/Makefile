@@ -50,6 +50,12 @@ ifeq ($(USE_JEMALLOC),no)
 	MALLOC=libc
 endif
 
+# override with g++ :D
+CC=g++
+WARN+= -Wno-deprecated
+STD=-m64 -std=c++0x
+V=1
+
 # Override default settings if possible
 -include .make-settings
 

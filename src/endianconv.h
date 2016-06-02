@@ -34,7 +34,11 @@
 #define __ENDIANCONV_H
 
 #include "config.h"
+#ifdef __cplusplus
+#include <cstdint>
+#else
 #include <stdint.h>
+#endif
 
 void memrev16(void *p);
 void memrev32(void *p);
