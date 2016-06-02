@@ -47,7 +47,7 @@
 
 #define rdbExitReportCorruptRDB(reason) rdbCheckThenExit(reason, __LINE__);
 
-void rdbCheckThenExit(char *reason, int where) {
+void rdbCheckThenExit(const char *reason, int where) {
     serverLog(LL_WARNING, "Corrupt RDB detected at rdb.c:%d (%s). "
         "Running 'redis-check-rdb %s'",
         where, reason, server.rdb_filename);
@@ -217,7 +217,7 @@ void *rdbLoadIntegerObject(rio *rdb, int enctype, int flags) {
 /* String objects in the form "2391" "-100" without any space and with a
  * range of values that can fit in an 8, 16 or 32 bit signed value can be
  * encoded as integers to save space */
-int rdbTryIntegerEncoding(char *s, size_t len, unsigned char *enc) {
+int rdbTryIntegerEncoding(const char *s, size_t len, unsigned char *enc) {
     long long value;
     char *endptr, buf[32];
 
@@ -593,7 +593,7 @@ ssize_t rdbSaveObject(rio *rdb, robj *o) {
         } else if (o->encoding == OBJ_ENCODING_INTSET) {
             size_t l = intsetBlobLen((intset*)o->ptr);
 
-            if ((n = rdbSaveRawString(rdb,o->ptr,l)) == -1) return -1;
+            if ((n = rdbSaveRawString(rdb,(unsigned char*)o->ptr,l)) == -1) return -1;
             nwritten += n;
         } else {
             serverPanic("Unknown set encoding");
@@ -603,19 +603,19 @@ ssize_t rdbSaveObject(rio *rdb, robj *o) {
         if (o->encoding == OBJ_ENCODING_ZIPLIST) {
             size_t l = ziplistBlobLen((unsigned char*)o->ptr);
 
-            if ((n = rdbSaveRawString(rdb,o->ptr,l)) == -1) return -1;
+            if ((n = rdbSaveRawString(rdb, (unsigned char*)o->ptr,l)) == -1) return -1;
             nwritten += n;
         } else if (o->encoding == OBJ_ENCODING_SKIPLIST) {
-            zset *zs = o->ptr;
-            dictIterator *di = dictGetIterator(zs->dict);
+            zset *zs = (zset*)o->ptr;
+            dictIterator *di = dictGetIterator(zs->dict_);
             dictEntry *de;
 
-            if ((n = rdbSaveLen(rdb,dictSize(zs->dict))) == -1) return -1;
+            if ((n = rdbSaveLen(rdb,dictSize(zs->dict_))) == -1) return -1;
             nwritten += n;
 
             while((de = dictNext(di)) != NULL) {
-                robj *eleobj = dictGetKey(de);
-                double *score = dictGetVal(de);
+                robj *eleobj = (robj*)dictGetKey(de);
+                double *score = (double*)dictGetVal(de);
 
                 if ((n = rdbSaveStringObject(rdb,eleobj)) == -1) return -1;
                 nwritten += n;
@@ -631,19 +631,19 @@ ssize_t rdbSaveObject(rio *rdb, robj *o) {
         if (o->encoding == OBJ_ENCODING_ZIPLIST) {
             size_t l = ziplistBlobLen((unsigned char*)o->ptr);
 
-            if ((n = rdbSaveRawString(rdb,o->ptr,l)) == -1) return -1;
+            if ((n = rdbSaveRawString(rdb, (unsigned char*)o->ptr,l)) == -1) return -1;
             nwritten += n;
 
         } else if (o->encoding == OBJ_ENCODING_HT) {
-            dictIterator *di = dictGetIterator(o->ptr);
+            dictIterator *di = dictGetIterator((dict*)o->ptr);
             dictEntry *de;
 
             if ((n = rdbSaveLen(rdb,dictSize((dict*)o->ptr))) == -1) return -1;
             nwritten += n;
 
             while((de = dictNext(di)) != NULL) {
-                robj *key = dictGetKey(de);
-                robj *val = dictGetVal(de);
+                robj *key = (robj*)dictGetKey(de);
+                robj *val = (robj*)dictGetVal(de);
 
                 if ((n = rdbSaveStringObject(rdb,key)) == -1) return -1;
                 nwritten += n;
@@ -695,21 +695,21 @@ int rdbSaveKeyValuePair(rio *rdb, robj *key, robj *val,
 }
 
 /* Save an AUX field. */
-int rdbSaveAuxField(rio *rdb, void *key, size_t keylen, void *val, size_t vallen) {
+int rdbSaveAuxField(rio *rdb, const void *key, size_t keylen, const void *val, size_t vallen) {
     if (rdbSaveType(rdb,RDB_OPCODE_AUX) == -1) return -1;
-    if (rdbSaveRawString(rdb,key,keylen) == -1) return -1;
-    if (rdbSaveRawString(rdb,val,vallen) == -1) return -1;
+    if (rdbSaveRawString(rdb,(unsigned char*)key,keylen) == -1) return -1;
+    if (rdbSaveRawString(rdb,(unsigned char*)val,vallen) == -1) return -1;
     return 1;
 }
 
 /* Wrapper for rdbSaveAuxField() used when key/val length can be obtained
  * with strlen(). */
-int rdbSaveAuxFieldStrStr(rio *rdb, char *key, char *val) {
+int rdbSaveAuxFieldStrStr(rio *rdb, const char *key, const char *val) {
     return rdbSaveAuxField(rdb,key,strlen(key),val,strlen(val));
 }
 
 /* Wrapper for strlen(key) + integer type (up to long long range). */
-int rdbSaveAuxFieldStrInt(rio *rdb, char *key, long long val) {
+int rdbSaveAuxFieldStrInt(rio *rdb, const char *key, long long val) {
     char buf[LONG_STR_SIZE];
     int vlen = ll2string(buf,sizeof(buf),val);
     return rdbSaveAuxField(rdb,key,strlen(key),buf,vlen);
@@ -751,7 +751,7 @@ int rdbSaveRio(rio *rdb, int *error) {
 
     for (j = 0; j < server.dbnum; j++) {
         redisDb *db = server.db+j;
-        dict *d = db->dict;
+        dict *d = db->dict_;
         if (dictSize(d) == 0) continue;
         di = dictGetSafeIterator(d);
         if (!di) return C_ERR;
@@ -765,8 +765,8 @@ int rdbSaveRio(rio *rdb, int *error) {
          * However this does not limit the actual size of the DB to load since
          * these sizes are just hints to resize the hash tables. */
         uint32_t db_size, expires_size;
-        db_size = (dictSize(db->dict) <= UINT32_MAX) ?
-                                dictSize(db->dict) :
+        db_size = (dictSize(db->dict_) <= UINT32_MAX) ?
+                                dictSize(db->dict_) :
                                 UINT32_MAX;
         expires_size = (dictSize(db->expires) <= UINT32_MAX) ?
                                 dictSize(db->expires) :
@@ -777,8 +777,8 @@ int rdbSaveRio(rio *rdb, int *error) {
 
         /* Iterate this DB writing every entry */
         while((de = dictNext(di)) != NULL) {
-            sds keystr = dictGetKey(de);
-            robj key, *o = dictGetVal(de);
+            sds keystr = (sds)dictGetKey(de);
+            robj key, *o = (robj*)dictGetVal(de);
             long long expire;
 
             initStaticStringObject(key,keystr);
@@ -962,15 +962,15 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
         if ((len = rdbLoadLen(rdb,NULL)) == RDB_LENERR) return NULL;
 
         o = createQuicklistObject();
-        quicklistSetOptions(o->ptr, server.list_max_ziplist_size,
+        quicklistSetOptions((quicklist*)o->ptr, server.list_max_ziplist_size,
                             server.list_compress_depth);
 
         /* Load every single element of the list */
         while(len--) {
             if ((ele = rdbLoadEncodedStringObject(rdb)) == NULL) return NULL;
             dec = getDecodedObject(ele);
-            size_t len = sdslen(dec->ptr);
-            quicklistPushTail(o->ptr, dec->ptr, len);
+            size_t len = sdslen((sds)dec->ptr);
+            quicklistPushTail((quicklist*)o->ptr, dec->ptr, len);
             decrRefCount(dec);
             decrRefCount(ele);
         }
@@ -984,7 +984,7 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
             /* It's faster to expand the dict to the right size asap in order
              * to avoid rehashing */
             if (len > DICT_HT_INITIAL_SIZE)
-                dictExpand(o->ptr,len);
+                dictExpand((dict*)o->ptr,len);
         } else {
             o = createIntsetObject();
         }
@@ -998,10 +998,10 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
             if (o->encoding == OBJ_ENCODING_INTSET) {
                 /* Fetch integer value from element */
                 if (isObjectRepresentableAsLongLong(ele,&llval) == C_OK) {
-                    o->ptr = intsetAdd(o->ptr,llval,NULL);
+                    o->ptr = intsetAdd((intset*)o->ptr,llval,NULL);
                 } else {
                     setTypeConvert(o,OBJ_ENCODING_HT);
-                    dictExpand(o->ptr,len);
+                    dictExpand((dict*)o->ptr,len);
                 }
             }
 
@@ -1021,7 +1021,7 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
 
         if ((zsetlen = rdbLoadLen(rdb,NULL)) == RDB_LENERR) return NULL;
         o = createZsetObject();
-        zs = o->ptr;
+        zs = (zset*)o->ptr;
 
         /* Load every single element of the list/set */
         while(zsetlen--) {
@@ -1034,11 +1034,11 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
             if (rdbLoadDoubleValue(rdb,&score) == -1) return NULL;
 
             /* Don't care about integer-encoded strings. */
-            if (sdsEncodedObject(ele) && sdslen(ele->ptr) > maxelelen)
-                maxelelen = sdslen(ele->ptr);
+            if (sdsEncodedObject(ele) && sdslen((sds)ele->ptr) > maxelelen)
+                maxelelen = sdslen((sds)ele->ptr);
 
             znode = zslInsert(zs->zsl,score,ele);
-            dictAdd(zs->dict,ele,&znode->score);
+            dictAdd(zs->dict_,ele,&znode->score);
             incrRefCount(ele); /* added to skiplist */
         }
 
@@ -1073,11 +1073,11 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
             serverAssert(sdsEncodedObject(value));
 
             /* Add pair to ziplist */
-            o->ptr = ziplistPush(o->ptr, field->ptr, sdslen(field->ptr), ZIPLIST_TAIL);
-            o->ptr = ziplistPush(o->ptr, value->ptr, sdslen(value->ptr), ZIPLIST_TAIL);
+            o->ptr = ziplistPush((unsigned char*)o->ptr, (unsigned char*)field->ptr, sdslen((sds)field->ptr), ZIPLIST_TAIL);
+            o->ptr = ziplistPush((unsigned char*)o->ptr, (unsigned char*)value->ptr, sdslen((sds)value->ptr), ZIPLIST_TAIL);
             /* Convert to hash table if size threshold is exceeded */
-            if (sdslen(field->ptr) > server.hash_max_ziplist_value ||
-                sdslen(value->ptr) > server.hash_max_ziplist_value)
+            if (sdslen((sds)field->ptr) > server.hash_max_ziplist_value ||
+                sdslen((sds)value->ptr) > server.hash_max_ziplist_value)
             {
                 decrRefCount(field);
                 decrRefCount(value);
@@ -1114,13 +1114,13 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
     } else if (rdbtype == RDB_TYPE_LIST_QUICKLIST) {
         if ((len = rdbLoadLen(rdb,NULL)) == RDB_LENERR) return NULL;
         o = createQuicklistObject();
-        quicklistSetOptions(o->ptr, server.list_max_ziplist_size,
+        quicklistSetOptions((quicklist*)o->ptr, server.list_max_ziplist_size,
                             server.list_compress_depth);
 
         while (len--) {
-            unsigned char *zl = rdbGenericLoadStringObject(rdb,RDB_LOAD_PLAIN);
+            unsigned char *zl = (unsigned char*)rdbGenericLoadStringObject(rdb,RDB_LOAD_PLAIN);
             if (zl == NULL) return NULL;
-            quicklistAppendZiplist(o->ptr, zl);
+            quicklistAppendZiplist((quicklist*)o->ptr, zl);
         }
     } else if (rdbtype == RDB_TYPE_HASH_ZIPMAP  ||
                rdbtype == RDB_TYPE_LIST_ZIPLIST ||
@@ -1128,7 +1128,7 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
                rdbtype == RDB_TYPE_ZSET_ZIPLIST ||
                rdbtype == RDB_TYPE_HASH_ZIPLIST)
     {
-        unsigned char *encoded = rdbGenericLoadStringObject(rdb,RDB_LOAD_PLAIN);
+        unsigned char *encoded = (unsigned char*)rdbGenericLoadStringObject(rdb,RDB_LOAD_PLAIN);
         if (encoded == NULL) return NULL;
         o = createObject(OBJ_STRING,encoded); /* Obj type fixed below. */
 
@@ -1144,7 +1144,7 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
                  * when loading dumps created by Redis 2.4 gets deprecated. */
                 {
                     unsigned char *zl = ziplistNew();
-                    unsigned char *zi = zipmapRewind(o->ptr);
+                    unsigned char *zi = zipmapRewind((unsigned char*)o->ptr);
                     unsigned char *fstr, *vstr;
                     unsigned int flen, vlen;
                     unsigned int maxlen = 0;
@@ -1176,7 +1176,7 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
             case RDB_TYPE_SET_INTSET:
                 o->type = OBJ_SET;
                 o->encoding = OBJ_ENCODING_INTSET;
-                if (intsetLen(o->ptr) > server.set_max_intset_entries)
+                if (intsetLen((intset*)o->ptr) > server.set_max_intset_entries)
                     setTypeConvert(o,OBJ_ENCODING_HT);
                 break;
             case RDB_TYPE_ZSET_ZIPLIST:
@@ -1327,7 +1327,7 @@ int rdbLoad(char *filename) {
                 goto eoferr;
             if ((expires_size = rdbLoadLen(&rdb,NULL)) == RDB_LENERR)
                 goto eoferr;
-            dictExpand(db->dict,db_size);
+            dictExpand(db->dict_,db_size);
             dictExpand(db->expires,expires_size);
             continue; /* Read type again. */
         } else if (type == RDB_OPCODE_AUX) {
@@ -1466,7 +1466,7 @@ void backgroundSaveDoneHandlerSocket(int exitcode, int bysignal) {
      * If the process returned an error, consider the list of slaves that
      * can continue to be emtpy, so that it's just a special case of the
      * normal code path. */
-    ok_slaves = zmalloc(sizeof(uint64_t)); /* Make space for the count. */
+    ok_slaves = (uint64_t*)zmalloc(sizeof(uint64_t)); /* Make space for the count. */
     ok_slaves[0] = 0;
     if (!bysignal && exitcode == 0) {
         int readlen = sizeof(uint64_t);
@@ -1478,7 +1478,7 @@ void backgroundSaveDoneHandlerSocket(int exitcode, int bysignal) {
 
             /* Make space for enough elements as specified by the first
              * uint64_t element in the array. */
-            ok_slaves = zrealloc(ok_slaves,sizeof(uint64_t)+readlen);
+            ok_slaves = (uint64_t*)zrealloc(ok_slaves,sizeof(uint64_t)+readlen);
             if (readlen &&
                 read(server.rdb_pipe_read_result_from_child, ok_slaves+1,
                      readlen) != readlen)
@@ -1498,7 +1498,7 @@ void backgroundSaveDoneHandlerSocket(int exitcode, int bysignal) {
 
     listRewind(server.slaves,&li);
     while((ln = listNext(&li))) {
-        client *slave = ln->value;
+        client *slave = (client*)ln->value;
 
         if (slave->replstate == SLAVE_STATE_WAIT_BGSAVE_END) {
             uint64_t j;
@@ -1573,16 +1573,16 @@ int rdbSaveToSlavesSockets(void) {
 
     /* Collect the file descriptors of the slaves we want to transfer
      * the RDB to, which are i WAIT_BGSAVE_START state. */
-    fds = zmalloc(sizeof(int)*listLength(server.slaves));
+    fds = (int*)zmalloc(sizeof(int)*listLength(server.slaves));
     /* We also allocate an array of corresponding client IDs. This will
      * be useful for the child process in order to build the report
      * (sent via unix pipe) that will be sent to the parent. */
-    clientids = zmalloc(sizeof(uint64_t)*listLength(server.slaves));
+    clientids = (uint64_t*)zmalloc(sizeof(uint64_t)*listLength(server.slaves));
     numfds = 0;
 
     listRewind(server.slaves,&li);
     while((ln = listNext(&li))) {
-        client *slave = ln->value;
+        client *slave = (client*)ln->value;
 
         if (slave->replstate == SLAVE_STATE_WAIT_BGSAVE_START) {
             clientids[numfds] = slave->id;
@@ -1638,7 +1638,7 @@ int rdbSaveToSlavesSockets(void) {
              * set to 0 if the replication process terminated with a success
              * or the error code if an error occurred. */
             void *msg = zmalloc(sizeof(uint64_t)*(1+2*numfds));
-            uint64_t *len = msg;
+            uint64_t *len = (uint64_t*)msg;
             uint64_t *ids = len+1;
             int j, msglen;
 
@@ -1678,7 +1678,7 @@ int rdbSaveToSlavesSockets(void) {
              * replicationSetupSlaveForFullResync() turned it into BGSAVE_END */
             listRewind(server.slaves,&li);
             while((ln = listNext(&li))) {
-                client *slave = ln->value;
+                client *slave = (client*)ln->value;
                 int j;
 
                 for (j = 0; j < numfds; j++) {

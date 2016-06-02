@@ -30,13 +30,6 @@
 #include "server.h"
 #include <sys/uio.h>
 #include <math.h>
-#ifndef SIZE_MAX
-# if __WORDSIZE == 64
-#  define SIZE_MAX		(18446744073709551615UL)
-# else
-#  define SIZE_MAX		(4294967295U)
-# endif
-#endif
 
 static void setProtocolError(client *c, int pos);
 

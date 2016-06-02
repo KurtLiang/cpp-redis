@@ -3793,7 +3793,7 @@ void redisOutOfMemoryHandler(size_t allocation_size) {
     serverPanic("Redis aborting for OUT OF MEMORY");
 }
 
-void redisSetProcTitle(char *title) {
+void redisSetProcTitle(const char *title) {
 #ifdef USE_SETPROCTITLE
     const char *server_mode = "";
     if (server.cluster_enabled) server_mode = " [cluster]";

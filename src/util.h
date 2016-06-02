@@ -54,4 +54,17 @@ int pathIsBaseName(char *path);
 int utilTest(int argc, char **argv);
 #endif
 
+
+#ifndef SIZE_MAX
+# if __WORDSIZE == 64
+#  define SIZE_MAX		(18446744073709551615UL)
+# else
+#  define SIZE_MAX		(4294967295U)
+# endif
+#endif
+
+#ifndef UINT32_MAX
+# define UINT32_MAX		(4294967295U)
+#endif
+
 #endif
