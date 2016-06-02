@@ -30,6 +30,13 @@
 #include "server.h"
 #include <sys/uio.h>
 #include <math.h>
+#ifndef SIZE_MAX
+# if __WORDSIZE == 64
+#  define SIZE_MAX		(18446744073709551615UL)
+# else
+#  define SIZE_MAX		(4294967295U)
+# endif
+#endif
 
 static void setProtocolError(client *c, int pos);
 
@@ -626,7 +633,7 @@ static void acceptCommonHandler(int fd, int flags, char *ip) {
      * for this condition, since now the socket is already set in non-blocking
      * mode and we can send an error for free using the Kernel I/O */
     if (listLength(server.clients) > server.maxclients) {
-        char *err = "-ERR max number of clients reached\r\n";
+        const char *err = "-ERR max number of clients reached\r\n";
 
         /* That's a best effort error message, don't check write errors */
         if (write(c->fd,err,strlen(err)) == -1) {
@@ -648,7 +655,7 @@ static void acceptCommonHandler(int fd, int flags, char *ip) {
         ip != NULL)
     {
         if (strcmp(ip,"127.0.0.1") && strcmp(ip,"::1")) {
-            char *err =
+            const char *err =
                 "-DENIED Redis is running in protected mode because protected "
                 "mode is enabled, no bind address was specified, no "
                 "authentication password is requested to clients. In this mode "
@@ -1493,19 +1500,19 @@ void clientCommand(client *c) {
         sdsfree(o);
     } else if (!strcasecmp((const char*)c->argv[1]->ptr,"reply") && c->argc == 3) {
         /* CLIENT REPLY ON|OFF|SKIP */
-        if (!strcasecmp(c->argv[2]->ptr,"on")) {
+        if (!strcasecmp((const char*)c->argv[2]->ptr,"on")) {
             c->flags &= ~(CLIENT_REPLY_SKIP|CLIENT_REPLY_OFF);
             addReply(c,shared.ok);
-        } else if (!strcasecmp(c->argv[2]->ptr,"off")) {
+        } else if (!strcasecmp((const char*)c->argv[2]->ptr,"off")) {
             c->flags |= CLIENT_REPLY_OFF;
-        } else if (!strcasecmp(c->argv[2]->ptr,"skip")) {
+        } else if (!strcasecmp((const char*)c->argv[2]->ptr,"skip")) {
             if (!(c->flags & CLIENT_REPLY_OFF))
                 c->flags |= CLIENT_REPLY_SKIP_NEXT;
         } else {
             addReply(c,shared.syntaxerr);
             return;
         }
-    } else if (!strcasecmp(c->argv[1]->ptr,"kill")) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"kill")) {
         /* CLIENT KILL <ip:port>
          * CLIENT KILL <option> [value] ... <option> [value] */
         char *addr = NULL;
@@ -1516,7 +1523,7 @@ void clientCommand(client *c) {
 
         if (c->argc == 3) {
             /* Old style syntax: CLIENT KILL <addr> */
-            addr = c->argv[2]->ptr;
+            addr = (char *)c->argv[2]->ptr;
             skipme = 0; /* With the old form, you can kill yourself. */
         } else if (c->argc > 3) {
             int i = 2; /* Next option index. */
@@ -1525,13 +1532,13 @@ void clientCommand(client *c) {
             while(i < c->argc) {
                 int moreargs = c->argc > i+1;
 
-                if (!strcasecmp(c->argv[i]->ptr,"id") && moreargs) {
+                if (!strcasecmp((const char*)c->argv[i]->ptr,"id") && moreargs) {
                     long long tmp;
 
                     if (getLongLongFromObjectOrReply(c,c->argv[i+1],&tmp,NULL)
                         != C_OK) return;
                     id = tmp;
-                } else if (!strcasecmp(c->argv[i]->ptr,"type") && moreargs) {
+                } else if (!strcasecmp((const char*)c->argv[i]->ptr,"type") && moreargs) {
                     type = getClientTypeByName((char*)c->argv[i+1]->ptr);
                     if (type == -1) {
                         addReplyErrorFormat(c,"Unknown client type '%s'",
@@ -1592,8 +1599,8 @@ void clientCommand(client *c) {
          * only after we queued the reply to its output buffers. */
         if (close_this_client) c->flags |= CLIENT_CLOSE_AFTER_REPLY;
     } else if (!strcasecmp((const char*)c->argv[1]->ptr,"setname") && c->argc == 3) {
-        int j, len = sdslen(c->argv[2]->ptr);
-        char *p = c->argv[2]->ptr;
+        int j, len = sdslen((sds)c->argv[2]->ptr);
+        char *p = (char*)c->argv[2]->ptr;
 
         /* Setting the client name to an empty string actually removes
          * the current name. */
@@ -1619,12 +1626,12 @@ void clientCommand(client *c) {
         c->name = c->argv[2];
         incrRefCount(c->name);
         addReply(c,shared.ok);
-    } else if (!strcasecmp(c->argv[1]->ptr,"getname") && c->argc == 2) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"getname") && c->argc == 2) {
         if (c->name)
             addReplyBulk(c,c->name);
         else
             addReply(c,shared.nullbulk);
-    } else if (!strcasecmp(c->argv[1]->ptr,"pause") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"pause") && c->argc == 3) {
         long long duration;
 
         if (getTimeoutFromObjectOrReply(c,c->argv[2],&duration,UNIT_MILLISECONDS)
@@ -1751,7 +1758,7 @@ int getClientTypeByName(char *name) {
     else return -1;
 }
 
-char *getClientTypeName(int klass) {
+const char *getClientTypeName(int klass) {
     switch(klass) {
     case CLIENT_TYPE_NORMAL: return "normal";
     case CLIENT_TYPE_SLAVE:  return "slave";

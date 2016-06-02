@@ -619,7 +619,7 @@ void _serverAssertPrintObject(robj *o) {
     serverLogObjectDebugInfo(o);
 }
 
-void _serverAssertWithInfo(client *c, robj *o, char *estr, char *file, int line) {
+void _serverAssertWithInfo(client *c, robj *o, const char *estr, const char *file, int line) {
     if (c) _serverAssertPrintClientInfo(c);
     if (o) _serverAssertPrintObject(o);
     _serverAssert(estr,file,line);

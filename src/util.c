@@ -73,12 +73,12 @@ int stringmatchlen(const char *pattern, int patternLen,
             break;
         case '[':
         {
-            int not, match;
+            int is_not, match;
 
             pattern++;
             patternLen--;
-            not = pattern[0] == '^';
-            if (not) {
+            is_not = pattern[0] == '^';
+            if (is_not) {
                 pattern++;
                 patternLen--;
             }
@@ -125,7 +125,7 @@ int stringmatchlen(const char *pattern, int patternLen,
                 pattern++;
                 patternLen--;
             }
-            if (not)
+            if (is_not)
                 match = !match;
             if (!match)
                 return 0; /* no match */
@@ -454,7 +454,7 @@ int d2string(char *buf, size_t len, double value) {
  * having run_id == A, and you reconnect and it has run_id == B, you can be
  * sure that it is either a different instance or it was restarted. */
 void getRandomHexChars(char *p, unsigned int len) {
-    char *charset = "0123456789abcdef";
+    const char *charset = "0123456789abcdef";
     unsigned int j;
 
     /* Global state. */

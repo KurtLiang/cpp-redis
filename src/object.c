@@ -37,7 +37,7 @@
 #endif
 
 robj *createObject(int type, void *ptr) {
-    robj *o = zmalloc(sizeof(*o));
+    robj *o = (robj*)zmalloc(sizeof(*o));
     o->type = type;
     o->encoding = OBJ_ENCODING_RAW;
     o->ptr = ptr;
@@ -58,8 +58,8 @@ robj *createRawStringObject(const char *ptr, size_t len) {
  * an object where the sds string is actually an unmodifiable string
  * allocated in the same chunk as the object itself. */
 robj *createEmbeddedStringObject(const char *ptr, size_t len) {
-    robj *o = zmalloc(sizeof(robj)+sizeof(struct sdshdr8)+len+1);
-    struct sdshdr8 *sh = (void*)(o+1);
+    robj *o = (robj*)zmalloc(sizeof(robj)+sizeof(struct sdshdr8)+len+1);
+    struct sdshdr8 *sh = (struct sdshdr8*)(o+1);
 
     o->type = OBJ_STRING;
     o->encoding = OBJ_ENCODING_EMBSTR;
@@ -167,9 +167,9 @@ robj *dupStringObject(robj *o) {
 
     switch(o->encoding) {
     case OBJ_ENCODING_RAW:
-        return createRawStringObject(o->ptr,sdslen(o->ptr));
+        return createRawStringObject((const char*)o->ptr,sdslen((sds)o->ptr));
     case OBJ_ENCODING_EMBSTR:
-        return createEmbeddedStringObject(o->ptr,sdslen(o->ptr));
+        return createEmbeddedStringObject((const char*)o->ptr,sdslen((sds)o->ptr));
     case OBJ_ENCODING_INT:
         d = createObject(OBJ_STRING, NULL);
         d->encoding = OBJ_ENCODING_INT;
@@ -217,10 +217,10 @@ robj *createHashObject(void) {
 }
 
 robj *createZsetObject(void) {
-    zset *zs = zmalloc(sizeof(*zs));
+    zset *zs = (zset*)zmalloc(sizeof(*zs));
     robj *o;
 
-    zs->dict = dictCreate(&zsetDictType,NULL);
+    zs->dict_ = dictCreate(&zsetDictType,NULL);
     zs->zsl = zslCreate();
     o = createObject(OBJ_ZSET,zs);
     o->encoding = OBJ_ENCODING_SKIPLIST;
@@ -236,14 +236,14 @@ robj *createZsetZiplistObject(void) {
 
 void freeStringObject(robj *o) {
     if (o->encoding == OBJ_ENCODING_RAW) {
-        sdsfree(o->ptr);
+        sdsfree((sds)o->ptr);
     }
 }
 
 void freeListObject(robj *o) {
     switch (o->encoding) {
     case OBJ_ENCODING_QUICKLIST:
-        quicklistRelease(o->ptr);
+        quicklistRelease((quicklist*)o->ptr);
         break;
     default:
         serverPanic("Unknown list encoding type");
@@ -267,8 +267,8 @@ void freeZsetObject(robj *o) {
     zset *zs;
     switch (o->encoding) {
     case OBJ_ENCODING_SKIPLIST:
-        zs = o->ptr;
-        dictRelease(zs->dict);
+        zs = (zset*)o->ptr;
+        dictRelease(zs->dict_);
         zslFree(zs->zsl);
         zfree(zs);
         break;
@@ -319,7 +319,7 @@ void decrRefCount(robj *o) {
  * as free method in data structures that expect a 'void free_object(void*)'
  * prototype for the free method. */
 void decrRefCountVoid(void *o) {
-    decrRefCount(o);
+    decrRefCount((robj*)o);
 }
 
 /* This function set the ref count to zero without freeing the object.
@@ -353,14 +353,14 @@ int isObjectRepresentableAsLongLong(robj *o, long long *llval) {
         if (llval) *llval = (long) o->ptr;
         return C_OK;
     } else {
-        return string2ll(o->ptr,sdslen(o->ptr),llval) ? C_OK : C_ERR;
+        return string2ll((const char*)o->ptr,sdslen((sds)o->ptr),llval) ? C_OK : C_ERR;
     }
 }
 
 /* Try to encode a string object in order to save space */
 robj *tryObjectEncoding(robj *o) {
     long value;
-    sds s = o->ptr;
+    sds s = (sds)o->ptr;
     size_t len;
 
     /* Make sure this is a string object, the only type we encode
@@ -398,7 +398,7 @@ robj *tryObjectEncoding(robj *o) {
             incrRefCount(shared.integers[value]);
             return shared.integers[value];
         } else {
-            if (o->encoding == OBJ_ENCODING_RAW) sdsfree(o->ptr);
+            if (o->encoding == OBJ_ENCODING_RAW) sdsfree((sds)o->ptr);
             o->encoding = OBJ_ENCODING_INT;
             o->ptr = (void*) value;
             return o;
@@ -430,7 +430,7 @@ robj *tryObjectEncoding(robj *o) {
     if (o->encoding == OBJ_ENCODING_RAW &&
         sdsavail(s) > len/10)
     {
-        o->ptr = sdsRemoveFreeSpace(o->ptr);
+        o->ptr = sdsRemoveFreeSpace((sds)o->ptr);
     }
 
     /* Return the original object. */
@@ -475,14 +475,14 @@ int compareStringObjectsWithFlags(robj *a, robj *b, int flags) {
 
     if (a == b) return 0;
     if (sdsEncodedObject(a)) {
-        astr = a->ptr;
+        astr = (char*)a->ptr;
         alen = sdslen(astr);
     } else {
         alen = ll2string(bufa,sizeof(bufa),(long) a->ptr);
         astr = bufa;
     }
     if (sdsEncodedObject(b)) {
-        bstr = b->ptr;
+        bstr = (char*)b->ptr;
         blen = sdslen(bstr);
     } else {
         blen = ll2string(bufb,sizeof(bufb),(long) b->ptr);
@@ -528,7 +528,7 @@ int equalStringObjects(robj *a, robj *b) {
 size_t stringObjectLen(robj *o) {
     serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
     if (sdsEncodedObject(o)) {
-        return sdslen(o->ptr);
+        return sdslen((sds)o->ptr);
     } else {
         return sdigits10((long)o->ptr);
     }
@@ -544,7 +544,7 @@ int getDoubleFromObject(robj *o, double *target) {
         serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
         if (sdsEncodedObject(o)) {
             errno = 0;
-            value = strtod(o->ptr, &eptr);
+            value = strtod((const char*)o->ptr, &eptr);
             if (isspace(((char*)o->ptr)[0]) ||
                 eptr[0] != '\0' ||
                 (errno == ERANGE &&
@@ -586,7 +586,7 @@ int getLongDoubleFromObject(robj *o, long double *target) {
         serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
         if (sdsEncodedObject(o)) {
             errno = 0;
-            value = strtold(o->ptr, &eptr);
+            value = strtold((const char*)o->ptr, &eptr);
             if (isspace(((char*)o->ptr)[0]) || eptr[0] != '\0' ||
                 errno == ERANGE || isnan(value))
                 return C_ERR;
@@ -624,7 +624,7 @@ int getLongLongFromObject(robj *o, long long *target) {
         serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
         if (sdsEncodedObject(o)) {
             errno = 0;
-            value = strtoll(o->ptr, &eptr, 10);
+            value = strtoll((const char*)o->ptr, &eptr, 10);
             if (isspace(((char*)o->ptr)[0]) || eptr[0] != '\0' ||
                 errno == ERANGE)
                 return C_ERR;
@@ -668,7 +668,7 @@ int getLongFromObjectOrReply(client *c, robj *o, long *target, const char *msg) 
     return C_OK;
 }
 
-char *strEncoding(int encoding) {
+const char *strEncoding(int encoding) {
     switch(encoding) {
     case OBJ_ENCODING_RAW: return "raw";
     case OBJ_ENCODING_INT: return "int";
@@ -699,7 +699,7 @@ unsigned long long estimateObjectIdleTime(robj *o) {
 robj *objectCommandLookup(client *c, robj *key) {
     dictEntry *de;
 
-    if ((de = dictFind(c->db->dict,key->ptr)) == NULL) return NULL;
+    if ((de = dictFind(c->db->dict_,key->ptr)) == NULL) return NULL;
     return (robj*) dictGetVal(de);
 }
 
@@ -715,15 +715,15 @@ robj *objectCommandLookupOrReply(client *c, robj *key, robj *reply) {
 void objectCommand(client *c) {
     robj *o;
 
-    if (!strcasecmp(c->argv[1]->ptr,"refcount") && c->argc == 3) {
+    if (!strcasecmp((const char*)c->argv[1]->ptr,"refcount") && c->argc == 3) {
         if ((o = objectCommandLookupOrReply(c,c->argv[2],shared.nullbulk))
                 == NULL) return;
         addReplyLongLong(c,o->refcount);
-    } else if (!strcasecmp(c->argv[1]->ptr,"encoding") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"encoding") && c->argc == 3) {
         if ((o = objectCommandLookupOrReply(c,c->argv[2],shared.nullbulk))
                 == NULL) return;
         addReplyBulkCString(c,strEncoding(o->encoding));
-    } else if (!strcasecmp(c->argv[1]->ptr,"idletime") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"idletime") && c->argc == 3) {
         if ((o = objectCommandLookupOrReply(c,c->argv[2],shared.nullbulk))
                 == NULL) return;
         addReplyLongLong(c,estimateObjectIdleTime(o)/1000);

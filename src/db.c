@@ -42,9 +42,9 @@ void slotToKeyFlush(void);
  *----------------------------------------------------------------------------*/
 
 robj *lookupKey(redisDb *db, robj *key) {
-    dictEntry *de = dictFind(db->dict,key->ptr);
+    dictEntry *de = dictFind(db->dict_,key->ptr);
     if (de) {
-        robj *val = dictGetVal(de);
+        robj *val = (robj*)dictGetVal(de);
 
         /* Update the access time for the ageing algorithm.
          * Don't do it if we have a saving child, as this will trigger
@@ -116,8 +116,8 @@ robj *lookupKeyWriteOrReply(client *c, robj *key, robj *reply) {
  *
  * The program is aborted if the key already exists. */
 void dbAdd(redisDb *db, robj *key, robj *val) {
-    sds copy = sdsdup(key->ptr);
-    int retval = dictAdd(db->dict, copy, val);
+    sds copy = sdsdup((sds)key->ptr);
+    int retval = dictAdd(db->dict_, copy, val);
 
     serverAssertWithInfo(NULL,key,retval == DICT_OK);
     if (val->type == OBJ_LIST) signalListAsReady(db, key);
@@ -130,10 +130,10 @@ void dbAdd(redisDb *db, robj *key, robj *val) {
  *
  * The program is aborted if the key was not already present. */
 void dbOverwrite(redisDb *db, robj *key, robj *val) {
-    dictEntry *de = dictFind(db->dict,key->ptr);
+    dictEntry *de = dictFind(db->dict_,key->ptr);
 
     serverAssertWithInfo(NULL,key,de != NULL);
-    dictReplace(db->dict, key->ptr, val);
+    dictReplace(db->dict_, key->ptr, val);
 }
 
 /* High level Set operation. This function can be used in order to set
@@ -154,7 +154,7 @@ void setKey(redisDb *db, robj *key, robj *val) {
 }
 
 int dbExists(redisDb *db, robj *key) {
-    return dictFind(db->dict,key->ptr) != NULL;
+    return dictFind(db->dict_,key->ptr) != NULL;
 }
 
 /* Return a random key, in form of a Redis object.
@@ -168,10 +168,10 @@ robj *dbRandomKey(redisDb *db) {
         sds key;
         robj *keyobj;
 
-        de = dictGetRandomKey(db->dict);
+        de = dictGetRandomKey(db->dict_);
         if (de == NULL) return NULL;
 
-        key = dictGetKey(de);
+        key = (sds)dictGetKey(de);
         keyobj = createStringObject(key,sdslen(key));
         if (dictFind(db->expires,key)) {
             if (expireIfNeeded(db,keyobj)) {
@@ -188,7 +188,7 @@ int dbDelete(redisDb *db, robj *key) {
     /* Deleting an entry from the expires dict will not free the sds of
      * the key, because it is shared with the main dictionary. */
     if (dictSize(db->expires) > 0) dictDelete(db->expires,key->ptr);
-    if (dictDelete(db->dict,key->ptr) == DICT_OK) {
+    if (dictDelete(db->dict_,key->ptr) == DICT_OK) {
         if (server.cluster_enabled) slotToKeyDel(key);
         return 1;
     } else {
@@ -227,7 +227,7 @@ robj *dbUnshareStringValue(redisDb *db, robj *key, robj *o) {
     serverAssert(o->type == OBJ_STRING);
     if (o->refcount != 1 || o->encoding != OBJ_ENCODING_RAW) {
         robj *decoded = getDecodedObject(o);
-        o = createRawStringObject(decoded->ptr, sdslen(decoded->ptr));
+        o = createRawStringObject((const char*)decoded->ptr, sdslen((sds)decoded->ptr));
         decrRefCount(decoded);
         dbOverwrite(db,key,o);
     }
@@ -239,8 +239,8 @@ long long emptyDb(void(callback)(void*)) {
     long long removed = 0;
 
     for (j = 0; j < server.dbnum; j++) {
-        removed += dictSize(server.db[j].dict);
-        dictEmpty(server.db[j].dict,callback);
+        removed += dictSize(server.db[j].dict_);
+        dictEmpty(server.db[j].dict_,callback);
         dictEmpty(server.db[j].expires,callback);
     }
     if (server.cluster_enabled) slotToKeyFlush();
@@ -276,9 +276,9 @@ void signalFlushedDb(int dbid) {
  *----------------------------------------------------------------------------*/
 
 void flushdbCommand(client *c) {
-    server.dirty += dictSize(c->db->dict);
+    server.dirty += dictSize(c->db->dict_);
     signalFlushedDb(c->db->id);
-    dictEmpty(c->db->dict,NULL);
+    dictEmpty(c->db->dict_,NULL);
     dictEmpty(c->db->expires,NULL);
     if (server.cluster_enabled) slotToKeyFlush();
     addReply(c,shared.ok);
@@ -364,15 +364,15 @@ void randomkeyCommand(client *c) {
 void keysCommand(client *c) {
     dictIterator *di;
     dictEntry *de;
-    sds pattern = c->argv[1]->ptr;
+    sds pattern = (sds)c->argv[1]->ptr;
     int plen = sdslen(pattern), allkeys;
     unsigned long numkeys = 0;
     void *replylen = addDeferredMultiBulkLength(c);
 
-    di = dictGetSafeIterator(c->db->dict);
+    di = dictGetSafeIterator(c->db->dict_);
     allkeys = (pattern[0] == '*' && pattern[1] == '\0');
     while((de = dictNext(di)) != NULL) {
-        sds key = dictGetKey(de);
+        sds key = (sds)dictGetKey(de);
         robj *keyobj;
 
         if (allkeys || stringmatchlen(pattern,plen,key,sdslen(key),0)) {
@@ -392,23 +392,23 @@ void keysCommand(client *c) {
  * returned by the dictionary iterator into a list. */
 void scanCallback(void *privdata, const dictEntry *de) {
     void **pd = (void**) privdata;
-    list *keys = pd[0];
-    robj *o = pd[1];
+    list *keys = (list*)pd[0];
+    robj *o = (robj*)pd[1];
     robj *key, *val = NULL;
 
     if (o == NULL) {
-        sds sdskey = dictGetKey(de);
+        sds sdskey = (sds)dictGetKey(de);
         key = createStringObject(sdskey, sdslen(sdskey));
     } else if (o->type == OBJ_SET) {
-        key = dictGetKey(de);
+        key = (robj*)dictGetKey(de);
         incrRefCount(key);
     } else if (o->type == OBJ_HASH) {
-        key = dictGetKey(de);
+        key = (robj*)dictGetKey(de);
         incrRefCount(key);
-        val = dictGetVal(de);
+        val = (robj*)dictGetVal(de);
         incrRefCount(val);
     } else if (o->type == OBJ_ZSET) {
-        key = dictGetKey(de);
+        key = (robj*)dictGetKey(de);
         incrRefCount(key);
         val = createStringObjectFromLongDouble(*(double*)dictGetVal(de),0);
     } else {
@@ -429,7 +429,7 @@ int parseScanCursorOrReply(client *c, robj *o, unsigned long *cursor) {
     /* Use strtoul() because we need an *unsigned* long, so
      * getLongLongFromObject() does not cover the whole cursor space. */
     errno = 0;
-    *cursor = strtoul(o->ptr, &eptr, 10);
+    *cursor = strtoul((const char*)o->ptr, &eptr, 10);
     if (isspace(((char*)o->ptr)[0]) || eptr[0] != '\0' || errno == ERANGE)
     {
         addReplyError(c, "invalid cursor");
@@ -469,7 +469,7 @@ void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
     /* Step 1: Parse options. */
     while (i < c->argc) {
         j = c->argc - i;
-        if (!strcasecmp(c->argv[i]->ptr, "count") && j >= 2) {
+        if (!strcasecmp((const char*)c->argv[i]->ptr, "count") && j >= 2) {
             if (getLongFromObjectOrReply(c, c->argv[i+1], &count, NULL)
                 != C_OK)
             {
@@ -482,8 +482,8 @@ void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
             }
 
             i += 2;
-        } else if (!strcasecmp(c->argv[i]->ptr, "match") && j >= 2) {
-            pat = c->argv[i+1]->ptr;
+        } else if (!strcasecmp((const char*)c->argv[i]->ptr, "match") && j >= 2) {
+            pat = (sds)c->argv[i+1]->ptr;
             patlen = sdslen(pat);
 
             /* The pattern always matches if it is exactly "*", so it is
@@ -508,15 +508,15 @@ void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
     /* Handle the case of a hash table. */
     ht = NULL;
     if (o == NULL) {
-        ht = c->db->dict;
+        ht = c->db->dict_;
     } else if (o->type == OBJ_SET && o->encoding == OBJ_ENCODING_HT) {
-        ht = o->ptr;
+        ht = (dict*)o->ptr;
     } else if (o->type == OBJ_HASH && o->encoding == OBJ_ENCODING_HT) {
-        ht = o->ptr;
+        ht = (dict*)o->ptr;
         count *= 2; /* We return key / value for this type. */
     } else if (o->type == OBJ_ZSET && o->encoding == OBJ_ENCODING_SKIPLIST) {
-        zset *zs = o->ptr;
-        ht = zs->dict;
+        zset *zs = (zset*)o->ptr;
+        ht = zs->dict_;
         count *= 2; /* We return key / value for this type. */
     }
 
@@ -542,11 +542,11 @@ void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
         int pos = 0;
         int64_t ll;
 
-        while(intsetGet(o->ptr,pos++,&ll))
+        while(intsetGet((intset*)o->ptr,pos++,&ll))
             listAddNodeTail(keys,createStringObjectFromLongLong(ll));
         cursor = 0;
     } else if (o->type == OBJ_HASH || o->type == OBJ_ZSET) {
-        unsigned char *p = ziplistIndex(o->ptr,0);
+        unsigned char *p = ziplistIndex((unsigned char*)o->ptr,0);
         unsigned char *vstr;
         unsigned int vlen;
         long long vll;
@@ -556,7 +556,7 @@ void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
             listAddNodeTail(keys,
                 (vstr != NULL) ? createStringObject((char*)vstr,vlen) :
                                  createStringObjectFromLongLong(vll));
-            p = ziplistNext(o->ptr,p);
+            p = ziplistNext((unsigned char*)o->ptr,p);
         }
         cursor = 0;
     } else {
@@ -566,14 +566,14 @@ void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
     /* Step 3: Filter elements. */
     node = listFirst(keys);
     while (node) {
-        robj *kobj = listNodeValue(node);
+        robj *kobj = (robj*)listNodeValue(node);
         nextnode = listNextNode(node);
         int filter = 0;
 
         /* Filter element if it does not match the pattern. */
         if (!filter && use_pattern) {
             if (sdsEncodedObject(kobj)) {
-                if (!stringmatchlen(pat, patlen, kobj->ptr, sdslen(kobj->ptr), 0))
+                if (!stringmatchlen(pat, patlen, (const char*)kobj->ptr, sdslen((sds)kobj->ptr), 0))
                     filter = 1;
             } else {
                 char buf[LONG_STR_SIZE];
@@ -601,7 +601,7 @@ void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
             node = nextnode;
             nextnode = listNextNode(node);
             if (filter) {
-                kobj = listNodeValue(node);
+                kobj = (robj*)listNodeValue(node);
                 decrRefCount(kobj);
                 listDelNode(keys, node);
             }
@@ -615,7 +615,7 @@ void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
 
     addReplyMultiBulkLen(c, listLength(keys));
     while ((node = listFirst(keys)) != NULL) {
-        robj *kobj = listNodeValue(node);
+        robj *kobj = (robj*)listNodeValue(node);
         addReplyBulk(c, kobj);
         decrRefCount(kobj);
         listDelNode(keys, node);
@@ -634,7 +634,7 @@ void scanCommand(client *c) {
 }
 
 void dbsizeCommand(client *c) {
-    addReplyLongLong(c,dictSize(c->db->dict));
+    addReplyLongLong(c,dictSize(c->db->dict_));
 }
 
 void lastsaveCommand(client *c) {
@@ -643,7 +643,7 @@ void lastsaveCommand(client *c) {
 
 void typeCommand(client *c) {
     robj *o;
-    char *type;
+    const char *type;
 
     o = lookupKeyRead(c->db,c->argv[1]);
     if (o == NULL) {
@@ -668,9 +668,9 @@ void shutdownCommand(client *c) {
         addReply(c,shared.syntaxerr);
         return;
     } else if (c->argc == 2) {
-        if (!strcasecmp(c->argv[1]->ptr,"nosave")) {
+        if (!strcasecmp((const char*)c->argv[1]->ptr,"nosave")) {
             flags |= SHUTDOWN_NOSAVE;
-        } else if (!strcasecmp(c->argv[1]->ptr,"save")) {
+        } else if (!strcasecmp((const char*)c->argv[1]->ptr,"save")) {
             flags |= SHUTDOWN_SAVE;
         } else {
             addReply(c,shared.syntaxerr);
@@ -696,7 +696,7 @@ void renameGenericCommand(client *c, int nx) {
 
     /* When source and dest key is the same, no operation is performed,
      * if the key exists, however we still return an error on unexisting key. */
-    if (sdscmp(c->argv[1]->ptr,c->argv[2]->ptr) == 0) samekey = 1;
+    if (sdscmp((sds)c->argv[1]->ptr, (sds)c->argv[2]->ptr) == 0) samekey = 1;
 
     if ((o = lookupKeyWriteOrReply(c,c->argv[1],shared.nokeyerr)) == NULL)
         return;
@@ -801,7 +801,7 @@ void moveCommand(client *c) {
 int removeExpire(redisDb *db, robj *key) {
     /* An expire may only be removed if there is a corresponding entry in the
      * main dict. Otherwise, the key will never be freed. */
-    serverAssertWithInfo(NULL,key,dictFind(db->dict,key->ptr) != NULL);
+    serverAssertWithInfo(NULL,key,dictFind(db->dict_,key->ptr) != NULL);
     return dictDelete(db->expires,key->ptr) == DICT_OK;
 }
 
@@ -809,7 +809,7 @@ void setExpire(redisDb *db, robj *key, long long when) {
     dictEntry *kde, *de;
 
     /* Reuse the sds from the main dict in the expire dict */
-    kde = dictFind(db->dict,key->ptr);
+    kde = dictFind(db->dict_,key->ptr);
     serverAssertWithInfo(NULL,key,kde != NULL);
     de = dictReplaceRaw(db->expires,dictGetKey(kde));
     dictSetSignedIntegerVal(de,when);
@@ -826,7 +826,7 @@ long long getExpire(redisDb *db, robj *key) {
 
     /* The entry was found in the expire dict, this means it should also
      * be present in the main dict (safety check). */
-    serverAssertWithInfo(NULL,key,dictFind(db->dict,key->ptr) != NULL);
+    serverAssertWithInfo(NULL,key,dictFind(db->dict_,key->ptr) != NULL);
     return dictGetSignedIntegerVal(de);
 }
 
@@ -996,7 +996,7 @@ void pttlCommand(client *c) {
 void persistCommand(client *c) {
     dictEntry *de;
 
-    de = dictFind(c->db->dict,c->argv[1]->ptr);
+    de = dictFind(c->db->dict_,c->argv[1]->ptr);
     if (de == NULL) {
         addReply(c,shared.czero);
     } else {
@@ -1025,7 +1025,7 @@ int *getKeysUsingCommandTable(struct redisCommand *cmd,robj **argv, int argc, in
     }
     last = cmd->lastkey;
     if (last < 0) last = argc+last;
-    keys = zmalloc(sizeof(int)*((last - cmd->firstkey)+1));
+    keys = (int*)zmalloc(sizeof(int)*((last - cmd->firstkey)+1));
     for (j = cmd->firstkey; j <= last; j += cmd->keystep) {
         serverAssert(j < argc);
         keys[i++] = j;
@@ -1065,7 +1065,7 @@ int *zunionInterGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *nu
     int i, num, *keys;
     UNUSED(cmd);
 
-    num = atoi(argv[2]->ptr);
+    num = atoi((const char*)argv[2]->ptr);
     /* Sanity check. Don't return any key if the command is going to
      * reply with syntax error. */
     if (num > (argc-3)) {
@@ -1076,7 +1076,7 @@ int *zunionInterGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *nu
     /* Keys in z{union,inter}store come from two places:
      * argv[1] = storage key,
      * argv[3...n] = keys to intersect */
-    keys = zmalloc(sizeof(int)*(num+1));
+    keys = (int*)zmalloc(sizeof(int)*(num+1));
 
     /* Add all key positions for argv[3...n] to keys[] */
     for (i = 0; i < num; i++) keys[i] = 3+i;
@@ -1094,7 +1094,7 @@ int *evalGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *numkeys) 
     int i, num, *keys;
     UNUSED(cmd);
 
-    num = atoi(argv[2]->ptr);
+    num = atoi((const char*)argv[2]->ptr);
     /* Sanity check. Don't return any key if the command is going to
      * reply with syntax error. */
     if (num > (argc-3)) {
@@ -1102,7 +1102,7 @@ int *evalGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *numkeys) 
         return NULL;
     }
 
-    keys = zmalloc(sizeof(int)*num);
+    keys = (int*)zmalloc(sizeof(int)*num);
     *numkeys = num;
 
     /* Add all key positions for argv[3...n] to keys[] */
@@ -1123,7 +1123,7 @@ int *sortGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *numkeys) 
     UNUSED(cmd);
 
     num = 0;
-    keys = zmalloc(sizeof(int)*2); /* Alloc 2 places for the worst case. */
+    keys = (int*)zmalloc(sizeof(int)*2); /* Alloc 2 places for the worst case. */
 
     keys[num++] = 1; /* <sort-key> is always present. */
 
@@ -1132,7 +1132,7 @@ int *sortGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *numkeys) 
      * next. However there are options with 1 or 2 arguments, so we
      * provide a list here in order to skip the right number of args. */
     struct {
-        char *name;
+        const char *name;
         int skip;
     } skiplist[] = {
         {"limit", 2},
@@ -1143,10 +1143,10 @@ int *sortGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *numkeys) 
 
     for (i = 2; i < argc; i++) {
         for (j = 0; skiplist[j].name != NULL; j++) {
-            if (!strcasecmp(argv[i]->ptr,skiplist[j].name)) {
+            if (!strcasecmp((const char*)argv[i]->ptr,skiplist[j].name)) {
                 i += skiplist[j].skip;
                 break;
-            } else if (!strcasecmp(argv[i]->ptr,"store") && i+1 < argc) {
+            } else if (!strcasecmp((const char*)argv[i]->ptr,"store") && i+1 < argc) {
                 /* Note: we don't increment "num" here and continue the loop
                  * to be sure to process the *last* "STORE" option if multiple
                  * ones are provided. This is same behavior as SORT. */
@@ -1171,8 +1171,8 @@ int *migrateGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *numkey
     /* But check for the extended one with the KEYS option. */
     if (argc > 6) {
         for (i = 6; i < argc; i++) {
-            if (!strcasecmp(argv[i]->ptr,"keys") &&
-                sdslen(argv[3]->ptr) == 0)
+            if (!strcasecmp((const char*)argv[i]->ptr,"keys") &&
+                sdslen((sds)argv[3]->ptr) == 0)
             {
                 first = i+1;
                 num = argc-first;
@@ -1181,7 +1181,7 @@ int *migrateGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *numkey
         }
     }
 
-    keys = zmalloc(sizeof(int)*num);
+    keys = (int*)zmalloc(sizeof(int)*num);
     for (i = 0; i < num; i++) keys[i] = first+i;
     *numkeys = num;
     return keys;
@@ -1191,14 +1191,14 @@ int *migrateGetKeys(struct redisCommand *cmd, robj **argv, int argc, int *numkey
  * a fast way a key that belongs to a specified hash slot. This is useful
  * while rehashing the cluster. */
 void slotToKeyAdd(robj *key) {
-    unsigned int hashslot = keyHashSlot(key->ptr,sdslen(key->ptr));
+    unsigned int hashslot = keyHashSlot((char*)key->ptr,sdslen((sds)key->ptr));
 
     zslInsert(server.cluster->slots_to_keys,hashslot,key);
     incrRefCount(key);
 }
 
 void slotToKeyDel(robj *key) {
-    unsigned int hashslot = keyHashSlot(key->ptr,sdslen(key->ptr));
+    unsigned int hashslot = keyHashSlot((char*)key->ptr,sdslen((sds)key->ptr));
 
     zslDelete(server.cluster->slots_to_keys,hashslot,key);
 }

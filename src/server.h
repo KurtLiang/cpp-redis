@@ -1122,7 +1122,7 @@ void freeClientsInAsyncFreeQueue(void);
 void asyncCloseClientOnOutputBufferLimitReached(client *c);
 int getClientType(client *c);
 int getClientTypeByName(char *name);
-char *getClientTypeName(int klass);
+const char *getClientTypeName(int klass);
 void flushSlavesOutputBuffers(void);
 void disconnectSlaves(void);
 int listenToPort(int port, int *fds, int *count);
@@ -1208,7 +1208,7 @@ int getDoubleFromObjectOrReply(client *c, robj *o, double *target, const char *m
 int getLongLongFromObject(robj *o, long long *target);
 int getLongDoubleFromObject(robj *o, long double *target);
 int getLongDoubleFromObjectOrReply(client *c, robj *o, long double *target, const char *msg);
-char *strEncoding(int encoding);
+const char *strEncoding(int encoding);
 int compareStringObjects(robj *a, robj *b);
 int collateStringObjects(robj *a, robj *b);
 int equalStringObjects(robj *a, robj *b);
@@ -1643,7 +1643,7 @@ void *realloc(void *ptr, size_t size) __attribute__ ((deprecated));
 #endif
 
 /* Debugging stuff */
-void _serverAssertWithInfo(client *c, robj *o, char *estr, char *file, int line);
+void _serverAssertWithInfo(client *c, robj *o, const char *estr, const char *file, int line);
 void _serverAssert(const char *estr, const char *file, int line);
 void _serverPanic(const char *msg, const char *file, int line);
 void bugReportStart(void);

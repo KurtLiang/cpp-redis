@@ -204,7 +204,7 @@ void *rdbLoadIntegerObject(rio *rdb, int enctype, int flags) {
     if (plain) {
         char buf[LONG_STR_SIZE], *p;
         int len = ll2string(buf,sizeof(buf),val);
-        p = zmalloc(len);
+        p = (char*)zmalloc(len);
         memcpy(p,buf,len);
         return p;
     } else if (encode) {
@@ -287,11 +287,11 @@ void *rdbLoadLzfStringObject(rio *rdb, int flags) {
 
     if ((clen = rdbLoadLen(rdb,NULL)) == RDB_LENERR) return NULL;
     if ((len = rdbLoadLen(rdb,NULL)) == RDB_LENERR) return NULL;
-    if ((c = zmalloc(clen)) == NULL) goto err;
+    if ((c = (unsigned char*)zmalloc(clen)) == NULL) goto err;
 
     /* Allocate our target according to the uncompressed size. */
     if (plain) {
-        val = zmalloc(len);
+        val = (sds)zmalloc(len);
     } else {
         if ((val = sdsnewlen(NULL,len)) == NULL) goto err;
     }
@@ -375,7 +375,7 @@ int rdbSaveStringObject(rio *rdb, robj *obj) {
         return rdbSaveLongLongAsStringObject(rdb,(long)obj->ptr);
     } else {
         serverAssertWithInfo(NULL,obj,sdsEncodedObject(obj));
-        return rdbSaveRawString(rdb,obj->ptr,sdslen(obj->ptr));
+        return rdbSaveRawString(rdb, (unsigned char*)obj->ptr,sdslen((sds)obj->ptr));
     }
 }
 
@@ -430,11 +430,11 @@ void *rdbGenericLoadStringObject(rio *rdb, int flags) {
 }
 
 robj *rdbLoadStringObject(rio *rdb) {
-    return rdbGenericLoadStringObject(rdb,RDB_LOAD_NONE);
+    return (robj*)rdbGenericLoadStringObject(rdb,RDB_LOAD_NONE);
 }
 
 robj *rdbLoadEncodedStringObject(rio *rdb) {
-    return rdbGenericLoadStringObject(rdb,RDB_LOAD_ENC);
+    return (robj*)rdbGenericLoadStringObject(rdb,RDB_LOAD_ENC);
 }
 
 /* Save a double value. Doubles are saved as strings prefixed by an unsigned
@@ -554,7 +554,7 @@ ssize_t rdbSaveObject(rio *rdb, robj *o) {
     } else if (o->type == OBJ_LIST) {
         /* Save a list value */
         if (o->encoding == OBJ_ENCODING_QUICKLIST) {
-            quicklist *ql = o->ptr;
+            quicklist *ql = (quicklist*)o->ptr;
             quicklistNode *node = ql->head;
 
             if ((n = rdbSaveLen(rdb,ql->len)) == -1) return -1;
@@ -577,7 +577,7 @@ ssize_t rdbSaveObject(rio *rdb, robj *o) {
     } else if (o->type == OBJ_SET) {
         /* Save a set value */
         if (o->encoding == OBJ_ENCODING_HT) {
-            dict *set = o->ptr;
+            dict *set = (dict*)o->ptr;
             dictIterator *di = dictGetIterator(set);
             dictEntry *de;
 
@@ -585,7 +585,7 @@ ssize_t rdbSaveObject(rio *rdb, robj *o) {
             nwritten += n;
 
             while((de = dictNext(di)) != NULL) {
-                robj *eleobj = dictGetKey(de);
+                robj *eleobj = (robj*)dictGetKey(de);
                 if ((n = rdbSaveStringObject(rdb,eleobj)) == -1) return -1;
                 nwritten += n;
             }
