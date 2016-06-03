@@ -55,9 +55,10 @@
  * "add" digests relative to unordered elements.
  *
  * So digest(a,b,c,d) will be the same of digest(b,a,c,d) */
-void xorDigest(unsigned char *digest, void *ptr, size_t len) {
+void xorDigest(unsigned char *digest, const void *ptr, size_t len) {
     SHA1_CTX ctx;
-    unsigned char hash[20], *s = ptr;
+    unsigned char hash[20];
+    const unsigned char *s = (const  unsigned char*)ptr;
     int j;
 
     SHA1Init(&ctx);
@@ -70,7 +71,7 @@ void xorDigest(unsigned char *digest, void *ptr, size_t len) {
 
 void xorObjectDigest(unsigned char *digest, robj *o) {
     o = getDecodedObject(o);
-    xorDigest(digest,o->ptr,sdslen(o->ptr));
+    xorDigest(digest,o->ptr,sdslen((sds)o->ptr));
     decrRefCount(o);
 }
 
@@ -90,7 +91,7 @@ void xorObjectDigest(unsigned char *digest, robj *o) {
  */
 void mixDigest(unsigned char *digest, void *ptr, size_t len) {
     SHA1_CTX ctx;
-    char *s = ptr;
+    char *s = (char*)ptr;
 
     xorDigest(digest,s,len);
     SHA1Init(&ctx);
@@ -100,7 +101,7 @@ void mixDigest(unsigned char *digest, void *ptr, size_t len) {
 
 void mixObjectDigest(unsigned char *digest, robj *o) {
     o = getDecodedObject(o);
-    mixDigest(digest,o->ptr,sdslen(o->ptr));
+    mixDigest(digest,o->ptr,sdslen((sds)o->ptr));
     decrRefCount(o);
 }
 
@@ -123,8 +124,8 @@ void computeDatasetDigest(unsigned char *final) {
     for (j = 0; j < server.dbnum; j++) {
         redisDb *db = server.db+j;
 
-        if (dictSize(db->dict) == 0) continue;
-        di = dictGetIterator(db->dict);
+        if (dictSize(db->dict_) == 0) continue;
+        di = dictGetIterator(db->dict_);
 
         /* hash the DB id, so the same dataset moved in a different
          * DB will lead to a different digest */
@@ -138,12 +139,12 @@ void computeDatasetDigest(unsigned char *final) {
             long long expiretime;
 
             memset(digest,0,20); /* This key-val digest */
-            key = dictGetKey(de);
+            key = (sds)dictGetKey(de);
             keyobj = createStringObject(key,sdslen(key));
 
             mixDigest(digest,key,sdslen(key));
 
-            o = dictGetVal(de);
+            o = (robj*)dictGetVal(de);
 
             aux = htonl(o->type);
             mixDigest(digest,&aux,sizeof(aux));
@@ -173,7 +174,7 @@ void computeDatasetDigest(unsigned char *final) {
                 unsigned char eledigest[20];
 
                 if (o->encoding == OBJ_ENCODING_ZIPLIST) {
-                    unsigned char *zl = o->ptr;
+                    unsigned char *zl = (unsigned char*)o->ptr;
                     unsigned char *eptr, *sptr;
                     unsigned char *vstr;
                     unsigned int vlen;
@@ -203,13 +204,13 @@ void computeDatasetDigest(unsigned char *final) {
                         zzlNext(zl,&eptr,&sptr);
                     }
                 } else if (o->encoding == OBJ_ENCODING_SKIPLIST) {
-                    zset *zs = o->ptr;
-                    dictIterator *di = dictGetIterator(zs->dict);
+                    zset *zs = (zset*)o->ptr;
+                    dictIterator *di = dictGetIterator(zs->dict_);
                     dictEntry *de;
 
                     while((de = dictNext(di)) != NULL) {
-                        robj *eleobj = dictGetKey(de);
-                        double *score = dictGetVal(de);
+                        robj *eleobj = (robj*)dictGetKey(de);
+                        double *score = (double*)dictGetVal(de);
 
                         snprintf(buf,sizeof(buf),"%.17g",*score);
                         memset(eledigest,0,20);
@@ -266,7 +267,7 @@ void debugCommand(client *c) {
         return;
     }
 
-    if (!strcasecmp(c->argv[1]->ptr,"help")) {
+    if (!strcasecmp((const char*)c->argv[1]->ptr,"help")) {
         void *blenp = addDeferredMultiBulkLength(c);
         int blen = 0;
         blen++; addReplyStatus(c,
@@ -308,10 +309,10 @@ void debugCommand(client *c) {
         blen++; addReplyStatus(c,
         "jemalloc purge -- Force jemalloc to release unused memory.");
         setDeferredMultiBulkLength(c,blenp,blen);
-    } else if (!strcasecmp(c->argv[1]->ptr,"segfault")) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"segfault")) {
         *((char*)-1) = 'x';
-    } else if (!strcasecmp(c->argv[1]->ptr,"restart") ||
-               !strcasecmp(c->argv[1]->ptr,"crash-and-recover"))
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"restart") ||
+               !strcasecmp((const char*)c->argv[1]->ptr,"crash-and-recover"))
     {
         long long delay = 0;
         if (c->argc >= 3) {
@@ -319,19 +320,19 @@ void debugCommand(client *c) {
                 != C_OK) return;
             if (delay < 0) delay = 0;
         }
-        int flags = !strcasecmp(c->argv[1]->ptr,"restart") ?
+        int flags = !strcasecmp((const char*)c->argv[1]->ptr,"restart") ?
             (RESTART_SERVER_GRACEFULLY|RESTART_SERVER_CONFIG_REWRITE) :
              RESTART_SERVER_NONE;
         restartServer(flags,delay);
         addReplyError(c,"failed to restart the server. Check server logs.");
-    } else if (!strcasecmp(c->argv[1]->ptr,"oom")) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"oom")) {
         void *ptr = zmalloc(ULONG_MAX); /* Should trigger an out of memory. */
         zfree(ptr);
         addReply(c,shared.ok);
-    } else if (!strcasecmp(c->argv[1]->ptr,"assert")) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"assert")) {
         if (c->argc >= 3) c->argv[2] = tryObjectEncoding(c->argv[2]);
         serverAssertWithInfo(c,c->argv[0],1 == 2);
-    } else if (!strcasecmp(c->argv[1]->ptr,"reload")) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"reload")) {
         if (rdbSave(server.rdb_filename) != C_OK) {
             addReply(c,shared.err);
             return;
@@ -343,7 +344,7 @@ void debugCommand(client *c) {
         }
         serverLog(LL_WARNING,"DB reloaded by DEBUG RELOAD");
         addReply(c,shared.ok);
-    } else if (!strcasecmp(c->argv[1]->ptr,"loadaof")) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"loadaof")) {
         if (server.aof_state == AOF_ON) flushAppendOnlyFile(1);
         emptyDb(NULL);
         if (loadAppendOnlyFile(server.aof_filename) != C_OK) {
@@ -353,23 +354,23 @@ void debugCommand(client *c) {
         server.dirty = 0; /* Prevent AOF / replication */
         serverLog(LL_WARNING,"Append Only File loaded by DEBUG LOADAOF");
         addReply(c,shared.ok);
-    } else if (!strcasecmp(c->argv[1]->ptr,"object") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"object") && c->argc == 3) {
         dictEntry *de;
         robj *val;
-        char *strenc;
+        const char *strenc;
 
-        if ((de = dictFind(c->db->dict,c->argv[2]->ptr)) == NULL) {
+        if ((de = dictFind(c->db->dict_,c->argv[2]->ptr)) == NULL) {
             addReply(c,shared.nokeyerr);
             return;
         }
-        val = dictGetVal(de);
+        val = (robj*)dictGetVal(de);
         strenc = strEncoding(val->encoding);
 
         char extra[128] = {0};
         if (val->encoding == OBJ_ENCODING_QUICKLIST) {
             char *nextra = extra;
             int remaining = sizeof(extra);
-            quicklist *ql = val->ptr;
+            quicklist *ql = (quicklist*)val->ptr;
             /* Add number of quicklist nodes */
             int used = snprintf(nextra, remaining, " ql_nodes:%u", ql->len);
             nextra += used;
@@ -405,17 +406,17 @@ void debugCommand(client *c) {
             (void*)val, val->refcount,
             strenc, rdbSavedObjectLen(val),
             val->lru, estimateObjectIdleTime(val)/1000, extra);
-    } else if (!strcasecmp(c->argv[1]->ptr,"sdslen") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"sdslen") && c->argc == 3) {
         dictEntry *de;
         robj *val;
         sds key;
 
-        if ((de = dictFind(c->db->dict,c->argv[2]->ptr)) == NULL) {
+        if ((de = dictFind(c->db->dict_,c->argv[2]->ptr)) == NULL) {
             addReply(c,shared.nokeyerr);
             return;
         }
-        val = dictGetVal(de);
-        key = dictGetKey(de);
+        val = (robj*)dictGetVal(de);
+        key = (sds)dictGetKey(de);
 
         if (val->type != OBJ_STRING || !sdsEncodedObject(val)) {
             addReplyError(c,"Not an sds encoded string.");
@@ -425,10 +426,10 @@ void debugCommand(client *c) {
                 "val_sds_len:%lld, val_sds_avail:%lld",
                 (long long) sdslen(key),
                 (long long) sdsavail(key),
-                (long long) sdslen(val->ptr),
-                (long long) sdsavail(val->ptr));
+                (long long) sdslen((sds)val->ptr),
+                (long long) sdsavail((sds)val->ptr));
         }
-    } else if (!strcasecmp(c->argv[1]->ptr,"populate") &&
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"populate") &&
                (c->argc == 3 || c->argc == 4)) {
         long keys, j;
         robj *key, *val;
@@ -436,7 +437,7 @@ void debugCommand(client *c) {
 
         if (getLongFromObjectOrReply(c, c->argv[2], &keys, NULL) != C_OK)
             return;
-        dictExpand(c->db->dict,keys);
+        dictExpand(c->db->dict_,keys);
         for (j = 0; j < keys; j++) {
             snprintf(buf,sizeof(buf),"%s:%lu",
                 (c->argc == 3) ? "key" : (char*)c->argv[3]->ptr, j);
@@ -452,7 +453,7 @@ void debugCommand(client *c) {
             decrRefCount(key);
         }
         addReply(c,shared.ok);
-    } else if (!strcasecmp(c->argv[1]->ptr,"digest") && c->argc == 2) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"digest") && c->argc == 2) {
         unsigned char digest[20];
         sds d = sdsempty();
         int j;
@@ -462,8 +463,8 @@ void debugCommand(client *c) {
             d = sdscatprintf(d, "%02x",digest[j]);
         addReplyStatus(c,d);
         sdsfree(d);
-    } else if (!strcasecmp(c->argv[1]->ptr,"sleep") && c->argc == 3) {
-        double dtime = strtod(c->argv[2]->ptr,NULL);
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"sleep") && c->argc == 3) {
+        double dtime = strtod((const char*)c->argv[2]->ptr,NULL);
         long long utime = dtime*1000000;
         struct timespec tv;
 
@@ -471,24 +472,24 @@ void debugCommand(client *c) {
         tv.tv_nsec = (utime % 1000000) * 1000;
         nanosleep(&tv, NULL);
         addReply(c,shared.ok);
-    } else if (!strcasecmp(c->argv[1]->ptr,"set-active-expire") &&
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"set-active-expire") &&
                c->argc == 3)
     {
-        server.active_expire_enabled = atoi(c->argv[2]->ptr);
+        server.active_expire_enabled = atoi((const char*)c->argv[2]->ptr);
         addReply(c,shared.ok);
-    } else if (!strcasecmp(c->argv[1]->ptr,"lua-always-replicate-commands") &&
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"lua-always-replicate-commands") &&
                c->argc == 3)
     {
-        server.lua_always_replicate_commands = atoi(c->argv[2]->ptr);
+        server.lua_always_replicate_commands = atoi((const char*)c->argv[2]->ptr);
         addReply(c,shared.ok);
-    } else if (!strcasecmp(c->argv[1]->ptr,"error") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"error") && c->argc == 3) {
         sds errstr = sdsnewlen("-",1);
 
-        errstr = sdscatsds(errstr,c->argv[2]->ptr);
+        errstr = sdscatsds(errstr, (sds)c->argv[2]->ptr);
         errstr = sdsmapchars(errstr,"\n\r","  ",2); /* no newlines in errors. */
         errstr = sdscatlen(errstr,"\r\n",2);
         addReplySds(c,errstr);
-    } else if (!strcasecmp(c->argv[1]->ptr,"structsize") && c->argc == 2) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"structsize") && c->argc == 2) {
         sds sizes = sdsempty();
         sizes = sdscatprintf(sizes,"bits:%d ",(sizeof(void*) == 8)?64:32);
         sizes = sdscatprintf(sizes,"robj:%d ",(int)sizeof(robj));
@@ -499,7 +500,7 @@ void debugCommand(client *c) {
         sizes = sdscatprintf(sizes,"sdshdr32:%d ",(int)sizeof(struct sdshdr32));
         sizes = sdscatprintf(sizes,"sdshdr64:%d ",(int)sizeof(struct sdshdr64));
         addReplyBulkSds(c,sizes);
-    } else if (!strcasecmp(c->argv[1]->ptr,"htstats") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"htstats") && c->argc == 3) {
         long dbid;
         sds stats = sdsempty();
         char buf[4096];
@@ -512,7 +513,7 @@ void debugCommand(client *c) {
         }
 
         stats = sdscatprintf(stats,"[Dictionary HT]\n");
-        dictGetStats(buf,sizeof(buf),server.db[dbid].dict);
+        dictGetStats(buf,sizeof(buf),server.db[dbid].dict_);
         stats = sdscat(stats,buf);
 
         stats = sdscatprintf(stats,"[Expires HT]\n");
@@ -520,13 +521,13 @@ void debugCommand(client *c) {
         stats = sdscat(stats,buf);
 
         addReplyBulkSds(c,stats);
-    } else if (!strcasecmp(c->argv[1]->ptr,"jemalloc") && c->argc == 3) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"jemalloc") && c->argc == 3) {
 #if defined(USE_JEMALLOC)
-        if (!strcasecmp(c->argv[2]->ptr, "info")) {
+        if (!strcasecmp((const char*)c->argv[2]->ptr, "info")) {
             sds info = sdsempty();
             je_malloc_stats_print(inputCatSds, &info, NULL);
             addReplyBulkSds(c, info);
-        } else if (!strcasecmp(c->argv[2]->ptr, "purge")) {
+        } else if (!strcasecmp((const char*)c->argv[2]->ptr, "purge")) {
             char tmp[32];
             unsigned narenas = 0;
             size_t sz = sizeof(unsigned);
@@ -594,9 +595,9 @@ void serverLogObjectDebugInfo(robj *o) {
     serverLog(LL_WARNING,"Object encoding: %d", o->encoding);
     serverLog(LL_WARNING,"Object refcount: %d", o->refcount);
     if (o->type == OBJ_STRING && sdsEncodedObject(o)) {
-        serverLog(LL_WARNING,"Object raw string len: %zu", sdslen(o->ptr));
-        if (sdslen(o->ptr) < 4096) {
-            sds repr = sdscatrepr(sdsempty(),o->ptr,sdslen(o->ptr));
+        serverLog(LL_WARNING,"Object raw string len: %zu", sdslen((sds)o->ptr));
+        if (sdslen((sds)o->ptr) < 4096) {
+            sds repr = sdscatrepr(sdsempty(), (const char*)o->ptr,sdslen((sds)o->ptr));
             serverLog(LL_WARNING,"Object raw string content: %s", repr);
             sdsfree(repr);
         }
@@ -851,8 +852,8 @@ void logStackTrace(ucontext_t *uc) {
     trace_size = backtrace(trace+1, 100);
 
     if (getMcontextEip(uc) != NULL) {
-        char *msg1 = "EIP:\n";
-        char *msg2 = "\nBacktrace:\n";
+        const char *msg1 = "EIP:\n";
+        const char *msg2 = "\nBacktrace:\n";
         if (write(fd,msg1,strlen(msg1)) == -1) {/* Avoid warning. */};
         trace[0] = getMcontextEip(uc);
         backtrace_symbols_fd(trace, 1, fd);
@@ -895,9 +896,9 @@ void logCurrentClient(void) {
         dictEntry *de;
 
         key = getDecodedObject(cc->argv[1]);
-        de = dictFind(cc->db->dict, key->ptr);
+        de = dictFind(cc->db->dict_, key->ptr);
         if (de) {
-            val = dictGetVal(de);
+            val = (robj*)dictGetVal(de);
             serverLog(LL_WARNING,"key '%s' found in DB containing the following object:", (char*)key->ptr);
             serverLogObjectDebugInfo(val);
         }
@@ -958,7 +959,7 @@ int memtest_test_linux_anonymous_maps(void) {
     int errors = 0;
     for (j = 0; j < regions; j++) {
         if (write(fd,".",1) == -1) { /* Nothing to do. */ }
-        errors += memtest_preserving_test((void*)start_vect[j],size_vect[j],1);
+        errors += memtest_preserving_test((unsigned long*)start_vect[j],size_vect[j],1);
         if (write(fd, errors ? "E" : "O",1) == -1) { /* Nothing to do. */ }
     }
     if (write(fd,"\n",1) == -1) { /* Nothing to do. */ }
@@ -1052,7 +1053,7 @@ void sigsegvHandler(int sig, siginfo_t *info, void *secret) {
 
 void serverLogHexDump(int level, const char *descr, void *value, size_t len) {
     char buf[65], *b;
-    unsigned char *v = value;
+    unsigned char *v = (unsigned char*)value;
     char charset[] = "0123456789abcdef";
 
     serverLog(level,"%s (hexdump):", descr);
