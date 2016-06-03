@@ -141,7 +141,7 @@ int yesnotoi(char *s) {
 }
 
 void appendServerSaveParams(time_t seconds, int changes) {
-    server.saveparams = zrealloc(server.saveparams,sizeof(struct saveparam)*(server.saveparamslen+1));
+    server.saveparams = (saveparam*)zrealloc(server.saveparams,sizeof(struct saveparam)*(server.saveparamslen+1));
     server.saveparams[server.saveparamslen].seconds = seconds;
     server.saveparams[server.saveparamslen].changes = changes;
     server.saveparamslen++;
@@ -154,7 +154,7 @@ void resetServerSaveParams(void) {
 }
 
 void loadServerConfigFromString(char *config) {
-    char *err = NULL;
+    const char *err = NULL;
     int linenum = 0, totlines, i;
     int slaveof_linenum = 0;
     sds *lines;
@@ -545,11 +545,11 @@ void loadServerConfigFromString(char *config) {
         } else if (!strcasecmp(argv[0],"client-output-buffer-limit") &&
                    argc == 5)
         {
-            int class = getClientTypeByName(argv[1]);
+            int klass = getClientTypeByName(argv[1]);
             unsigned long long hard, soft;
             int soft_seconds;
 
-            if (class == -1) {
+            if (klass == -1) {
                 err = "Unrecognized client limit class";
                 goto loaderr;
             }
@@ -560,9 +560,9 @@ void loadServerConfigFromString(char *config) {
                 err = "Negative number of seconds in soft limit is invalid";
                 goto loaderr;
             }
-            server.client_obuf_limits[class].hard_limit_bytes = hard;
-            server.client_obuf_limits[class].soft_limit_bytes = soft;
-            server.client_obuf_limits[class].soft_limit_seconds = soft_seconds;
+            server.client_obuf_limits[klass].hard_limit_bytes = hard;
+            server.client_obuf_limits[klass].soft_limit_bytes = soft;
+            server.client_obuf_limits[klass].soft_limit_seconds = soft_seconds;
         } else if (!strcasecmp(argv[0],"stop-writes-on-bgsave-error") &&
                    argc == 2) {
             if ((server.stop_writes_on_bgsave_err = yesnotoi(argv[1])) == -1) {
@@ -675,32 +675,32 @@ void loadServerConfig(char *filename, char *options) {
  *----------------------------------------------------------------------------*/
 
 #define config_set_bool_field(_name,_var) \
-    } else if (!strcasecmp(c->argv[2]->ptr,_name)) { \
-        int yn = yesnotoi(o->ptr); \
+    } else if (!strcasecmp((const char*)c->argv[2]->ptr,_name)) { \
+        int yn = yesnotoi((char*)o->ptr); \
         if (yn == -1) goto badfmt; \
         _var = yn;
 
 #define config_set_numerical_field(_name,_var,min,max) \
-    } else if (!strcasecmp(c->argv[2]->ptr,_name)) { \
+    } else if (!strcasecmp((const char*)c->argv[2]->ptr,_name)) { \
         if (getLongLongFromObject(o,&ll) == C_ERR || ll < 0) goto badfmt; \
         if (min != LLONG_MIN && ll < min) goto badfmt; \
         if (max != LLONG_MAX && ll > max) goto badfmt; \
         _var = ll;
 
 #define config_set_memory_field(_name,_var) \
-    } else if (!strcasecmp(c->argv[2]->ptr,_name)) { \
-        ll = memtoll(o->ptr,&err); \
+    } else if (!strcasecmp((const char*)c->argv[2]->ptr,_name)) { \
+        ll = memtoll((const char*)o->ptr,&err); \
         if (err || ll < 0) goto badfmt; \
         _var = ll;
 
 #define config_set_enum_field(_name,_var,_enumvar) \
-    } else if (!strcasecmp(c->argv[2]->ptr,_name)) { \
-        int enumval = configEnumGetValue(_enumvar,o->ptr); \
+    } else if (!strcasecmp((const char*)c->argv[2]->ptr,_name)) { \
+        int enumval = configEnumGetValue(_enumvar,(char*)o->ptr); \
         if (enumval == INT_MIN) goto badfmt; \
         _var = enumval;
 
 #define config_set_special_field(_name) \
-    } else if (!strcasecmp(c->argv[2]->ptr,_name)) {
+    } else if (!strcasecmp((const char*)c->argv[2]->ptr,_name)) {
 
 #define config_set_else } else
 
@@ -716,19 +716,19 @@ void configSetCommand(client *c) {
 
     /* Special fields that can't be handled with general macros. */
     config_set_special_field("dbfilename") {
-        if (!pathIsBaseName(o->ptr)) {
+        if (!pathIsBaseName((char*)o->ptr)) {
             addReplyError(c, "dbfilename can't be a path, just a filename");
             return;
         }
         zfree(server.rdb_filename);
-        server.rdb_filename = zstrdup(o->ptr);
+        server.rdb_filename = zstrdup((const char*)o->ptr);
     } config_set_special_field("requirepass") {
-        if (sdslen(o->ptr) > CONFIG_AUTHPASS_MAX_LEN) goto badfmt;
+        if (sdslen((sds)o->ptr) > CONFIG_AUTHPASS_MAX_LEN) goto badfmt;
         zfree(server.requirepass);
-        server.requirepass = ((char*)o->ptr)[0] ? zstrdup(o->ptr) : NULL;
+        server.requirepass = ((char*)o->ptr)[0] ? zstrdup((const char*)o->ptr) : NULL;
     } config_set_special_field("masterauth") {
         zfree(server.masterauth);
-        server.masterauth = ((char*)o->ptr)[0] ? zstrdup(o->ptr) : NULL;
+        server.masterauth = ((char*)o->ptr)[0] ? zstrdup((const char*)o->ptr) : NULL;
     } config_set_special_field("maxclients") {
         int orig_value = server.maxclients;
 
@@ -756,7 +756,7 @@ void configSetCommand(client *c) {
             }
         }
     } config_set_special_field("appendonly") {
-        int enable = yesnotoi(o->ptr);
+        int enable = yesnotoi((char*)o->ptr);
 
         if (enable == -1) goto badfmt;
         if (enable == 0 && server.aof_state != AOF_OFF) {
@@ -770,7 +770,7 @@ void configSetCommand(client *c) {
         }
     } config_set_special_field("save") {
         int vlen, j;
-        sds *v = sdssplitlen(o->ptr,sdslen(o->ptr)," ",1,&vlen);
+        sds *v = sdssplitlen((const char*)o->ptr,sdslen((sds)o->ptr)," ",1,&vlen);
 
         /* Perform sanity check before setting the new config:
          * - Even number of args
@@ -809,7 +809,7 @@ void configSetCommand(client *c) {
         }
     } config_set_special_field("client-output-buffer-limit") {
         int vlen, j;
-        sds *v = sdssplitlen(o->ptr,sdslen(o->ptr)," ",1,&vlen);
+        sds *v = sdssplitlen((const char*)o->ptr,sdslen((sds)o->ptr)," ",1,&vlen);
 
         /* We need a multiple of 4: <class> <hard> <soft> <soft_seconds> */
         if (vlen % 4) {
@@ -838,22 +838,22 @@ void configSetCommand(client *c) {
         }
         /* Finally set the new config */
         for (j = 0; j < vlen; j += 4) {
-            int class;
+            int klass;
             unsigned long long hard, soft;
             int soft_seconds;
 
-            class = getClientTypeByName(v[j]);
+            klass = getClientTypeByName(v[j]);
             hard = strtoll(v[j+1],NULL,10);
             soft = strtoll(v[j+2],NULL,10);
             soft_seconds = strtoll(v[j+3],NULL,10);
 
-            server.client_obuf_limits[class].hard_limit_bytes = hard;
-            server.client_obuf_limits[class].soft_limit_bytes = soft;
-            server.client_obuf_limits[class].soft_limit_seconds = soft_seconds;
+            server.client_obuf_limits[klass].hard_limit_bytes = hard;
+            server.client_obuf_limits[klass].soft_limit_bytes = soft;
+            server.client_obuf_limits[klass].soft_limit_seconds = soft_seconds;
         }
         sdsfreesplitres(v,vlen);
     } config_set_special_field("notify-keyspace-events") {
-        int flags = keyspaceEventsStringToFlags(o->ptr);
+        int flags = keyspaceEventsStringToFlags((char*)o->ptr);
 
         if (flags == -1) goto badfmt;
         server.notify_keyspace_events = flags;
@@ -1036,7 +1036,7 @@ badfmt: /* Bad format errors */
 void configGetCommand(client *c) {
     robj *o = c->argv[2];
     void *replylen = addDeferredMultiBulkLength(c);
-    char *pattern = o->ptr;
+    char *pattern = (char*)o->ptr;
     char buf[128];
     int matches = 0;
     serverAssertWithInfo(c,o,sdsEncodedObject(o));
@@ -1274,13 +1274,13 @@ struct rewriteConfigState {
 
 /* Append the new line to the current configuration state. */
 void rewriteConfigAppendLine(struct rewriteConfigState *state, sds line) {
-    state->lines = zrealloc(state->lines, sizeof(char*) * (state->numlines+1));
+    state->lines = (char**)zrealloc(state->lines, sizeof(char*) * (state->numlines+1));
     state->lines[state->numlines++] = line;
 }
 
 /* Populate the option -> list of line numbers map. */
 void rewriteConfigAddLineNumberToOption(struct rewriteConfigState *state, sds option, int linenum) {
-    list *l = dictFetchValue(state->option_to_line,option);
+    list *l = (list*)dictFetchValue(state->option_to_line,option);
 
     if (l == NULL) {
         l = listCreate();
@@ -1306,7 +1306,7 @@ void rewriteConfigMarkAsProcessed(struct rewriteConfigState *state, const char *
  * If the old file does not exist at all, an empty state is returned. */
 struct rewriteConfigState *rewriteConfigReadOldFile(char *path) {
     FILE *fp = fopen(path,"r");
-    struct rewriteConfigState *state = zmalloc(sizeof(*state));
+    struct rewriteConfigState *state = (rewriteConfigState*)zmalloc(sizeof(*state));
     char buf[CONFIG_MAX_LINE+1];
     int linenum = -1;
 
@@ -1379,7 +1379,7 @@ struct rewriteConfigState *rewriteConfigReadOldFile(char *path) {
  * in any way. */
 void rewriteConfigRewriteLine(struct rewriteConfigState *state, const char *option, sds line, int force) {
     sds o = sdsnew(option);
-    list *l = dictFetchValue(state->option_to_line,o);
+    list *l = (list*)dictFetchValue(state->option_to_line,o);
 
     rewriteConfigMarkAsProcessed(state,option);
 
@@ -1431,7 +1431,7 @@ int rewriteConfigFormatMemory(char *buf, size_t len, long long bytes) {
 }
 
 /* Rewrite a simple "option-name <bytes>" configuration option. */
-void rewriteConfigBytesOption(struct rewriteConfigState *state, char *option, long long value, long long defvalue) {
+void rewriteConfigBytesOption(struct rewriteConfigState *state, const char *option, long long value, long long defvalue) {
     char buf[64];
     int force = value != defvalue;
     sds line;
@@ -1442,7 +1442,7 @@ void rewriteConfigBytesOption(struct rewriteConfigState *state, char *option, lo
 }
 
 /* Rewrite a yes/no option. */
-void rewriteConfigYesNoOption(struct rewriteConfigState *state, char *option, int value, int defvalue) {
+void rewriteConfigYesNoOption(struct rewriteConfigState *state, const char *option, int value, int defvalue) {
     int force = value != defvalue;
     sds line = sdscatprintf(sdsempty(),"%s %s",option,
         value ? "yes" : "no");
@@ -1451,7 +1451,7 @@ void rewriteConfigYesNoOption(struct rewriteConfigState *state, char *option, in
 }
 
 /* Rewrite a string option. */
-void rewriteConfigStringOption(struct rewriteConfigState *state, char *option, char *value, char *defvalue) {
+void rewriteConfigStringOption(struct rewriteConfigState *state, const char *option, const char *value, const char *defvalue) {
     int force = 1;
     sds line;
 
@@ -1473,7 +1473,7 @@ void rewriteConfigStringOption(struct rewriteConfigState *state, char *option, c
 }
 
 /* Rewrite a numerical (long long range) option. */
-void rewriteConfigNumericalOption(struct rewriteConfigState *state, char *option, long long value, long long defvalue) {
+void rewriteConfigNumericalOption(struct rewriteConfigState *state, const char *option, long long value, long long defvalue) {
     int force = value != defvalue;
     sds line = sdscatprintf(sdsempty(),"%s %lld",option,value);
 
@@ -1481,7 +1481,7 @@ void rewriteConfigNumericalOption(struct rewriteConfigState *state, char *option
 }
 
 /* Rewrite a octal option. */
-void rewriteConfigOctalOption(struct rewriteConfigState *state, char *option, int value, int defvalue) {
+void rewriteConfigOctalOption(struct rewriteConfigState *state, const char *option, int value, int defvalue) {
     int force = value != defvalue;
     sds line = sdscatprintf(sdsempty(),"%s %o",option,value);
 
@@ -1491,7 +1491,7 @@ void rewriteConfigOctalOption(struct rewriteConfigState *state, char *option, in
 /* Rewrite an enumeration option. It takes as usually state and option name,
  * and in addition the enumeration array and the default value for the
  * option. */
-void rewriteConfigEnumOption(struct rewriteConfigState *state, char *option, int value, configEnum *ce, int defval) {
+void rewriteConfigEnumOption(struct rewriteConfigState *state, const char *option, int value, configEnum *ce, int defval) {
     sds line;
     const char *name = configEnumGetNameOrUnknown(ce,value);
     int force = value != defval;
@@ -1542,7 +1542,7 @@ void rewriteConfigDirOption(struct rewriteConfigState *state) {
 
 /* Rewrite the slaveof option. */
 void rewriteConfigSlaveofOption(struct rewriteConfigState *state) {
-    char *option = "slaveof";
+    const char *option = "slaveof";
     sds line;
 
     /* If this is a master, we want all the slaveof config options
@@ -1560,7 +1560,7 @@ void rewriteConfigSlaveofOption(struct rewriteConfigState *state) {
 /* Rewrite the notify-keyspace-events option. */
 void rewriteConfigNotifykeyspaceeventsOption(struct rewriteConfigState *state) {
     int force = server.notify_keyspace_events != 0;
-    char *option = "notify-keyspace-events";
+    const char *option = "notify-keyspace-events";
     sds line, flags;
 
     flags = keyspaceEventsFlagsToString(server.notify_keyspace_events);
@@ -1574,7 +1574,7 @@ void rewriteConfigNotifykeyspaceeventsOption(struct rewriteConfigState *state) {
 /* Rewrite the client-output-buffer-limit option. */
 void rewriteConfigClientoutputbufferlimitOption(struct rewriteConfigState *state) {
     int j;
-    char *option = "client-output-buffer-limit";
+    const char *option = "client-output-buffer-limit";
 
     for (j = 0; j < CLIENT_TYPE_OBUF_COUNT; j++) {
         int force = (server.client_obuf_limits[j].hard_limit_bytes !=
@@ -1602,7 +1602,7 @@ void rewriteConfigClientoutputbufferlimitOption(struct rewriteConfigState *state
 void rewriteConfigBindOption(struct rewriteConfigState *state) {
     int force = 1;
     sds line, addresses;
-    char *option = "bind";
+    const char *option = "bind";
 
     /* Nothing to rewrite if we don't have bind addresses. */
     if (server.bindaddr_count == 0) {
@@ -1661,8 +1661,8 @@ void rewriteConfigRemoveOrphaned(struct rewriteConfigState *state) {
     dictEntry *de;
 
     while((de = dictNext(di)) != NULL) {
-        list *l = dictGetVal(de);
-        sds option = dictGetKey(de);
+        list *l = (list*)dictGetVal(de);
+        sds option = (sds)dictGetKey(de);
 
         /* Don't blank lines about options the rewrite process
          * don't understand. */
@@ -1856,23 +1856,23 @@ int rewriteConfig(char *path) {
 
 void configCommand(client *c) {
     /* Only allow CONFIG GET while loading. */
-    if (server.loading && strcasecmp(c->argv[1]->ptr,"get")) {
+    if (server.loading && strcasecmp((const char*)c->argv[1]->ptr,"get")) {
         addReplyError(c,"Only CONFIG GET is allowed during loading");
         return;
     }
 
-    if (!strcasecmp(c->argv[1]->ptr,"set")) {
+    if (!strcasecmp((const char*)c->argv[1]->ptr,"set")) {
         if (c->argc != 4) goto badarity;
         configSetCommand(c);
-    } else if (!strcasecmp(c->argv[1]->ptr,"get")) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"get")) {
         if (c->argc != 3) goto badarity;
         configGetCommand(c);
-    } else if (!strcasecmp(c->argv[1]->ptr,"resetstat")) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"resetstat")) {
         if (c->argc != 2) goto badarity;
         resetServerStats();
         resetCommandTableStats();
         addReply(c,shared.ok);
-    } else if (!strcasecmp(c->argv[1]->ptr,"rewrite")) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"rewrite")) {
         if (c->argc != 2) goto badarity;
         if (server.configfile == NULL) {
             addReplyError(c,"The server is running without a config file");

@@ -34,16 +34,16 @@
  *----------------------------------------------------------------------------*/
 
 void freePubsubPattern(void *p) {
-    pubsubPattern *pat = p;
+    pubsubPattern *pat = (pubsubPattern*)p;
 
     decrRefCount(pat->pattern);
     zfree(pat);
 }
 
 int listMatchPubsubPattern(void *a, void *b) {
-    pubsubPattern *pa = a, *pb = b;
+    pubsubPattern *pa = (pubsubPattern *)a, *pb = (pubsubPattern *)b;
 
-    return (pa->client == pb->client) &&
+    return (pa->client_ == pb->client_) &&
            (equalStringObjects(pa->pattern,pb->pattern));
 }
 
@@ -71,7 +71,7 @@ int pubsubSubscribeChannel(client *c, robj *channel) {
             dictAdd(server.pubsub_channels,channel,clients);
             incrRefCount(channel);
         } else {
-            clients = dictGetVal(de);
+            clients = (list*)dictGetVal(de);
         }
         listAddNodeTail(clients,c);
     }
@@ -99,7 +99,7 @@ int pubsubUnsubscribeChannel(client *c, robj *channel, int notify) {
         /* Remove the client from the channel -> clients list hash table */
         de = dictFind(server.pubsub_channels,channel);
         serverAssertWithInfo(c,NULL,de != NULL);
-        clients = dictGetVal(de);
+        clients = (list*)dictGetVal(de);
         ln = listSearchKey(clients,c);
         serverAssertWithInfo(c,NULL,ln != NULL);
         listDelNode(clients,ln);
@@ -132,9 +132,9 @@ int pubsubSubscribePattern(client *c, robj *pattern) {
         pubsubPattern *pat;
         listAddNodeTail(c->pubsub_patterns,pattern);
         incrRefCount(pattern);
-        pat = zmalloc(sizeof(*pat));
+        pat = (pubsubPattern*)zmalloc(sizeof(*pat));
         pat->pattern = getDecodedObject(pattern);
-        pat->client = c;
+        pat->client_ = c;
         listAddNodeTail(server.pubsub_patterns,pat);
     }
     /* Notify the client */
@@ -156,7 +156,7 @@ int pubsubUnsubscribePattern(client *c, robj *pattern, int notify) {
     if ((ln = listSearchKey(c->pubsub_patterns,pattern)) != NULL) {
         retval = 1;
         listDelNode(c->pubsub_patterns,ln);
-        pat.client = c;
+        pat.client_ = c;
         pat.pattern = pattern;
         ln = listSearchKey(server.pubsub_patterns,&pat);
         listDelNode(server.pubsub_patterns,ln);
@@ -181,7 +181,7 @@ int pubsubUnsubscribeAllChannels(client *c, int notify) {
     int count = 0;
 
     while((de = dictNext(di)) != NULL) {
-        robj *channel = dictGetKey(de);
+        robj *channel = (robj*)dictGetKey(de);
 
         count += pubsubUnsubscribeChannel(c,channel,notify);
     }
@@ -206,7 +206,7 @@ int pubsubUnsubscribeAllPatterns(client *c, int notify) {
 
     listRewind(c->pubsub_patterns,&li);
     while ((ln = listNext(&li)) != NULL) {
-        robj *pattern = ln->value;
+        robj *pattern = (robj*)ln->value;
 
         count += pubsubUnsubscribePattern(c,pattern,notify);
     }
@@ -231,13 +231,13 @@ int pubsubPublishMessage(robj *channel, robj *message) {
     /* Send to clients listening for that channel */
     de = dictFind(server.pubsub_channels,channel);
     if (de) {
-        list *list = dictGetVal(de);
+        list *lst = (list*)dictGetVal(de);
         listNode *ln;
         listIter li;
 
-        listRewind(list,&li);
+        listRewind(lst,&li);
         while ((ln = listNext(&li)) != NULL) {
-            client *c = ln->value;
+            client *c = (client*)ln->value;
 
             addReply(c,shared.mbulkhdr[3]);
             addReply(c,shared.messagebulk);
@@ -251,17 +251,17 @@ int pubsubPublishMessage(robj *channel, robj *message) {
         listRewind(server.pubsub_patterns,&li);
         channel = getDecodedObject(channel);
         while ((ln = listNext(&li)) != NULL) {
-            pubsubPattern *pat = ln->value;
+            pubsubPattern *pat = (pubsubPattern*)ln->value;
 
             if (stringmatchlen((char*)pat->pattern->ptr,
-                                sdslen(pat->pattern->ptr),
+                                sdslen((sds)pat->pattern->ptr),
                                 (char*)channel->ptr,
-                                sdslen(channel->ptr),0)) {
-                addReply(pat->client,shared.mbulkhdr[4]);
-                addReply(pat->client,shared.pmessagebulk);
-                addReplyBulk(pat->client,pat->pattern);
-                addReplyBulk(pat->client,channel);
-                addReplyBulk(pat->client,message);
+                                sdslen((sds)channel->ptr),0)) {
+                addReply(pat->client_,shared.mbulkhdr[4]);
+                addReply(pat->client_,shared.pmessagebulk);
+                addReplyBulk(pat->client_,pat->pattern);
+                addReplyBulk(pat->client_,channel);
+                addReplyBulk(pat->client_,message);
                 receivers++;
             }
         }
@@ -325,11 +325,11 @@ void publishCommand(client *c) {
 
 /* PUBSUB command for Pub/Sub introspection. */
 void pubsubCommand(client *c) {
-    if (!strcasecmp(c->argv[1]->ptr,"channels") &&
+    if (!strcasecmp((const char*)c->argv[1]->ptr,"channels") &&
         (c->argc == 2 || c->argc ==3))
     {
         /* PUBSUB CHANNELS [<pattern>] */
-        sds pat = (c->argc == 2) ? NULL : c->argv[2]->ptr;
+        sds pat = (sds)((c->argc == 2) ? NULL : c->argv[2]->ptr);
         dictIterator *di = dictGetIterator(server.pubsub_channels);
         dictEntry *de;
         long mblen = 0;
@@ -337,8 +337,8 @@ void pubsubCommand(client *c) {
 
         replylen = addDeferredMultiBulkLength(c);
         while((de = dictNext(di)) != NULL) {
-            robj *cobj = dictGetKey(de);
-            sds channel = cobj->ptr;
+            robj *cobj = (robj*)dictGetKey(de);
+            sds channel = (sds)cobj->ptr;
 
             if (!pat || stringmatchlen(pat, sdslen(pat),
                                        channel, sdslen(channel),0))
@@ -349,18 +349,18 @@ void pubsubCommand(client *c) {
         }
         dictReleaseIterator(di);
         setDeferredMultiBulkLength(c,replylen,mblen);
-    } else if (!strcasecmp(c->argv[1]->ptr,"numsub") && c->argc >= 2) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"numsub") && c->argc >= 2) {
         /* PUBSUB NUMSUB [Channel_1 ... Channel_N] */
         int j;
 
         addReplyMultiBulkLen(c,(c->argc-2)*2);
         for (j = 2; j < c->argc; j++) {
-            list *l = dictFetchValue(server.pubsub_channels,c->argv[j]);
+            list *l = (list*)dictFetchValue(server.pubsub_channels,c->argv[j]);
 
             addReplyBulk(c,c->argv[j]);
             addReplyLongLong(c,l ? listLength(l) : 0);
         }
-    } else if (!strcasecmp(c->argv[1]->ptr,"numpat") && c->argc == 2) {
+    } else if (!strcasecmp((const char*)c->argv[1]->ptr,"numpat") && c->argc == 2) {
         /* PUBSUB NUMPAT */
         addReplyLongLong(c,listLength(server.pubsub_patterns));
     } else {
