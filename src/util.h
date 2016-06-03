@@ -55,6 +55,7 @@ int utilTest(int argc, char **argv);
 #endif
 
 
+//@Kurt hacked
 #ifndef SIZE_MAX
 # if __WORDSIZE == 64
 #  define SIZE_MAX		(18446744073709551615UL)
@@ -66,5 +67,16 @@ int utilTest(int argc, char **argv);
 #ifndef UINT32_MAX
 # define UINT32_MAX		(4294967295U)
 #endif
+
+#ifndef INT32_MAX
+# define INT32_MAX		(2147483647)
+#endif
+
+# if __WORDSIZE == 64
+#  define UINT64_C(c)	c ## UL
+# else
+#  define UINT64_C(c)	c ## ULL
+#endif
+
 
 #endif

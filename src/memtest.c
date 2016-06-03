@@ -132,7 +132,7 @@ int memtest_addressing(unsigned long *l, size_t bytes, int interactive) {
         rseed ^= rseed >> 12; \
         rseed ^= rseed << 25; \
         rseed ^= rseed >> 27; \
-        rout = rseed * UINT64_C(2685821657736338717); \
+        rout = rseed * 2685821657736338717ull; \
 } while(0)
 
 void memtest_fill_random(unsigned long *l, size_t bytes, int interactive) {
@@ -140,7 +140,7 @@ void memtest_fill_random(unsigned long *l, size_t bytes, int interactive) {
     unsigned long words = bytes/sizeof(unsigned long)/2;
     unsigned long iwords = words/step;  /* words per iteration */
     unsigned long off, w, *l1, *l2;
-    uint64_t rseed = UINT64_C(0xd13133de9afdb566); /* Just a random seed. */
+    uint64_t rseed = 0xd13133de9afdb566ull; /* Just a random seed. */
     uint64_t rout = 0;
 
     assert((bytes & 4095) == 0);
@@ -335,7 +335,7 @@ int memtest_preserving_test(unsigned long *m, size_t bytes, int passes) {
 /* Perform an interactive test allocating the specified number of megabytes. */
 void memtest_alloc_and_test(size_t megabytes, int passes) {
     size_t bytes = megabytes*1024*1024;
-    unsigned long *m = malloc(bytes);
+    unsigned long *m = (long unsigned int*)malloc(bytes);
 
     if (m == NULL) {
         fprintf(stderr,"Unable to allocate %zu megabytes: %s",
