@@ -174,7 +174,7 @@ static void cliRefreshPrompt(void) {
  * The function returns NULL (if the file is /dev/null or cannot be
  * obtained for some error), or an SDS string that must be freed by
  * the user. */
-static sds getDotfilePath(char *envoverride, char *dotfilename) {
+static sds getDotfilePath(const char *envoverride, const char *dotfilename) {
     char *path = NULL;
     sds dotPath = NULL;
 
@@ -238,11 +238,11 @@ static void cliInitHelp(void) {
     helpEntry tmp;
 
     helpEntriesLen = len = commandslen+groupslen;
-    helpEntries = malloc(sizeof(helpEntry)*len);
+    helpEntries = (helpEntry*)malloc(sizeof(helpEntry)*len);
 
     for (i = 0; i < groupslen; i++) {
         tmp.argc = 1;
-        tmp.argv = malloc(sizeof(sds));
+        tmp.argv = (sds*)malloc(sizeof(sds));
         tmp.argv[0] = sdscatprintf(sdsempty(),"@%s",commandGroups[i]);
         tmp.full = tmp.argv[0];
         tmp.type = CLI_HELP_GROUP;
@@ -412,7 +412,7 @@ static char *hintsCallback(const char *buf, int *color, int *bold) {
 }
 
 static void freeHintsCallback(void *ptr) {
-    sdsfree(ptr);
+    sdsfree((sds)ptr);
 }
 
 /*------------------------------------------------------------------------------
@@ -424,7 +424,7 @@ static int cliAuth(void) {
     redisReply *reply;
     if (config.auth == NULL) return REDIS_OK;
 
-    reply = redisCommand(context,"AUTH %s",config.auth);
+    reply = (redisReply*)redisCommand(context,"AUTH %s",config.auth);
     if (reply != NULL) {
         freeReplyObject(reply);
         return REDIS_OK;
@@ -437,7 +437,7 @@ static int cliSelect(void) {
     redisReply *reply;
     if (config.dbnum == 0) return REDIS_OK;
 
-    reply = redisCommand(context,"SELECT %d",config.dbnum);
+    reply = (redisReply*)redisCommand(context,"SELECT %d",config.dbnum);
     if (reply != NULL) {
         int result = REDIS_OK;
         if (reply->type == REDIS_REPLY_ERROR) result = REDIS_ERR;
@@ -492,7 +492,7 @@ static void cliPrintContextError(void) {
     fprintf(stderr,"Error: %s\n",context->errstr);
 }
 
-static sds cliFormatReplyTTY(redisReply *r, char *prefix) {
+static sds cliFormatReplyTTY(redisReply *r, const char *prefix) {
     sds out = sdsempty();
     switch (r->type) {
     case REDIS_REPLY_ERROR:
@@ -566,7 +566,7 @@ int isColorTerm(void) {
 
 /* Helpe  function for sdsCatColorizedLdbReply() appending colorize strings
  * to an SDS string. */
-sds sdscatcolor(sds o, char *s, size_t len, char *color) {
+sds sdscatcolor(sds o, char *s, size_t len, const char *color) {
     if (!isColorTerm()) return sdscatlen(o,s,len);
 
     int bold = strstr(color,"bold") != NULL;
@@ -589,7 +589,7 @@ sds sdscatcolor(sds o, char *s, size_t len, char *color) {
 /* Colorize Lua debugger status replies according to the prefix they
  * have. */
 sds sdsCatColorizedLdbReply(sds o, char *s, size_t len) {
-    char *color = "white";
+    const char *color = "white";
 
     if (strstr(s,"<debug>")) color = "bold";
     if (strstr(s,"<redis>")) color = "green";
@@ -828,7 +828,7 @@ static int cliSendCommand(int argc, char **argv, int repeat) {
     }
 
     /* Setup argument length */
-    argvlen = malloc(argc*sizeof(size_t));
+    argvlen =(size_t*) malloc(argc*sizeof(size_t));
     for (j = 0; j < argc; j++)
         argvlen[j] = sdslen(argv[j]);
 
@@ -894,7 +894,7 @@ static redisReply *reconnectingRedisCommand(redisContext *c, const char *fmt, ..
         }
 
         va_start(ap,fmt);
-        reply = redisvCommand(c,fmt,ap);
+        reply = (redisReply*)redisvCommand(c,fmt,ap);
         va_end(ap);
 
         if (c->err && !(c->err & (REDIS_ERR_IO | REDIS_ERR_EOF))) {
@@ -1107,7 +1107,7 @@ static void usage(void) {
 /* Turn the plain C strings into Sds strings */
 static char **convertToSds(int count, char** args) {
   int j;
-  char **sds = zmalloc(sizeof(char*)*count);
+  char **sds = (char**)zmalloc(sizeof(char*)*count);
 
   for(j = 0; j < count; j++)
     sds[j] = sdsnew(args[j]);
@@ -1152,7 +1152,7 @@ static sds *cliSplitArgs(char *line, int *argc) {
     if (config.eval_ldb && (strstr(line,"eval ") == line ||
                             strstr(line,"e ") == line))
     {
-        sds *argv = sds_malloc(sizeof(sds)*2);
+        sds *argv = (sds*)sds_malloc(sizeof(sds)*2);
         *argc = 2;
         int len = strlen(line);
         int elen = line[1] == ' ' ? 2 : 5; /* "e " or "eval "? */
@@ -1302,7 +1302,7 @@ static void repl(void) {
 static int noninteractive(int argc, char **argv) {
     int retval = 0;
     if (config.stdinarg) {
-        argv = zrealloc(argv, (argc+1)*sizeof(char*));
+        argv = (char**)zrealloc(argv, (argc+1)*sizeof(char*));
         argv[argc] = readArgFromStdin();
         retval = issueCommand(argc+1, argv);
     } else {
@@ -1353,14 +1353,14 @@ static int evalMode(int argc, char **argv) {
 
         /* If we are debugging a script, enable the Lua debugger. */
         if (config.eval_ldb) {
-            redisReply *reply = redisCommand(context,
+            redisReply *reply = (redisReply*)redisCommand(context,
                     config.eval_ldb_sync ?
                     "SCRIPT DEBUG sync": "SCRIPT DEBUG yes");
             if (reply) freeReplyObject(reply);
         }
 
         /* Create our argument vector */
-        argv2 = zmalloc(sizeof(sds)*(argc+3));
+        argv2 = (sds*)zmalloc(sizeof(sds)*(argc+3));
         argv2[0] = sdsnew("EVAL");
         argv2[1] = script;
         for (j = 0; j < argc; j++) {
@@ -1876,7 +1876,7 @@ static void pipeMode(void) {
 #define TYPE_NONE   5
 
 static redisReply *sendScan(unsigned long long *it) {
-    redisReply *reply = redisCommand(context, "SCAN %llu", *it);
+    redisReply *reply = (redisReply*)redisCommand(context, "SCAN %llu", *it);
 
     /* Handle any error conditions */
     if(reply == NULL) {
@@ -1907,7 +1907,7 @@ static int getDbSize(void) {
     redisReply *reply;
     int size;
 
-    reply = redisCommand(context, "DBSIZE");
+    reply = (redisReply*)redisCommand(context, "DBSIZE");
 
     if(reply == NULL || reply->type != REDIS_REPLY_INTEGER) {
         fprintf(stderr, "Couldn't determine DBSIZE!\n");
@@ -1970,7 +1970,7 @@ static void getKeySizes(redisReply *keys, int *types,
                         unsigned long long *sizes)
 {
     redisReply *reply;
-    char *sizecmds[] = {"STRLEN","LLEN","SCARD","HLEN","ZCARD"};
+    const char *sizecmds[] = {"STRLEN","LLEN","SCARD","HLEN","ZCARD"};
     unsigned int i;
 
     /* Pipeline size commands */
@@ -2015,8 +2015,8 @@ static void findBigKeys(void) {
     unsigned long long biggest[5] = {0}, counts[5] = {0}, totalsize[5] = {0};
     unsigned long long sampled = 0, total_keys, totlen=0, *sizes=NULL, it=0;
     sds maxkeys[5] = {0};
-    char *typename[] = {"string","list","set","hash","zset"};
-    char *typeunit[] = {"bytes","items","members","fields","members"};
+    const char *type_name[] = {"string","list","set","hash","zset"};
+    const char *typeunit[] = {"bytes","items","members","fields","members"};
     redisReply *reply, *keys;
     unsigned int arrsize=0, i;
     int type, *types=NULL;
@@ -2050,8 +2050,8 @@ static void findBigKeys(void) {
 
         /* Reallocate our type and size array if we need to */
         if(keys->elements > arrsize) {
-            types = zrealloc(types, sizeof(int)*keys->elements);
-            sizes = zrealloc(sizes, sizeof(unsigned long long)*keys->elements);
+            types = (int*)zrealloc(types, sizeof(int)*keys->elements);
+            sizes = (unsigned long long *)zrealloc(sizes, sizeof(unsigned long long)*keys->elements);
 
             if(!types || !sizes) {
                 fprintf(stderr, "Failed to allocate storage for keys!\n");
@@ -2078,7 +2078,7 @@ static void findBigKeys(void) {
             if(biggest[type]<sizes[i]) {
                 printf(
                    "[%05.2f%%] Biggest %-6s found so far '%s' with %llu %s\n",
-                   pct, typename[type], keys->element[i]->str, sizes[i],
+                   pct, type_name[type], keys->element[i]->str, sizes[i],
                    typeunit[type]);
 
                 /* Keep track of biggest key name for this type */
@@ -2119,7 +2119,7 @@ static void findBigKeys(void) {
     /* Output the biggest keys we found, for types we did find */
     for(i=0;i<TYPE_NONE;i++) {
         if(sdslen(maxkeys[i])>0) {
-            printf("Biggest %6s found '%s' has %llu %s\n", typename[i], maxkeys[i],
+            printf("Biggest %6s found '%s' has %llu %s\n", type_name[i], maxkeys[i],
                biggest[i], typeunit[i]);
         }
     }
@@ -2128,7 +2128,7 @@ static void findBigKeys(void) {
 
     for(i=0;i<TYPE_NONE;i++) {
         printf("%llu %ss with %llu %s (%05.2f%% of keys, avg size %.2f)\n",
-           counts[i], typename[i], totalsize[i], typeunit[i],
+           counts[i], type_name[i], totalsize[i], typeunit[i],
            sampled ? 100 * (double)counts[i]/sampled : 0,
            counts[i] ? (double)totalsize[i]/counts[i] : 0);
     }
@@ -2149,7 +2149,7 @@ static void findBigKeys(void) {
 /* Return the specified INFO field from the INFO command output "info".
  * A new buffer is allocated for the result, that needs to be free'd.
  * If the field is not found NULL is returned. */
-static char *getInfoField(char *info, char *field) {
+static char *getInfoField(char *info, const char *field) {
     char *p = strstr(info,field);
     char *n1, *n2;
     char *result;
@@ -2159,7 +2159,7 @@ static char *getInfoField(char *info, char *field) {
     n1 = strchr(p,'\r');
     n2 = strchr(p,',');
     if (n2 && n2 < n1) n1 = n2;
-    result = malloc(sizeof(char)*(n1-p)+1);
+    result = (char*)malloc(sizeof(char)*(n1-p)+1);
     memcpy(result,p,(n1-p));
     result[n1-p] = '\0';
     return result;
@@ -2167,7 +2167,7 @@ static char *getInfoField(char *info, char *field) {
 
 /* Like the above function but automatically convert the result into
  * a long. On error (missing field) LONG_MIN is returned. */
-static long getLongInfoField(char *info, char *field) {
+static long getLongInfoField(char *info, const char *field) {
     char *value = getInfoField(info,field);
     long l;
 
@@ -2299,10 +2299,10 @@ static void scanMode(void) {
 
     do {
         if (config.pattern)
-            reply = redisCommand(context,"SCAN %llu MATCH %s",
+            reply = (redisReply*)redisCommand(context,"SCAN %llu MATCH %s",
                 cur,config.pattern);
         else
-            reply = redisCommand(context,"SCAN %llu",cur);
+            reply = (redisReply*)redisCommand(context,"SCAN %llu",cur);
         if (reply == NULL) {
             printf("I/O error\n");
             exit(1);

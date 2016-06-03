@@ -21,11 +21,11 @@ static const char *commandGroups[] = {
 };
 
 struct commandHelp {
-  char *name;
-  char *params;
-  char *summary;
+  const char *name;
+  const char *params;
+  const char *summary;
   int group;
-  char *since;
+  const char *since;
 } commandHelp[] = {
     { "APPEND",
     "key value",
