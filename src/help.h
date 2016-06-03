@@ -3,7 +3,7 @@
 #ifndef __REDIS_HELP_H
 #define __REDIS_HELP_H
 
-static char *commandGroups[] = {
+static const char *commandGroups[] = {
     "generic",
     "string",
     "list",

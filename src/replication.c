@@ -1258,7 +1258,7 @@ char *sendSynchronousCommand(int flags, int fd, ...) {
 #define PSYNC_FULLRESYNC 3
 #define PSYNC_NOT_SUPPORTED 4
 int slaveTryPartialResynchronization(int fd, int read_reply) {
-    char *psync_runid;
+    const char *psync_runid;
     char psync_offset[32];
     sds reply;
 

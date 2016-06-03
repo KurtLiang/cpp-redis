@@ -30,12 +30,7 @@
 #ifndef __REDIS_UTIL_H
 #define __REDIS_UTIL_H
 
-
-#ifdef __cplusplus
-#include <cstdint>
-#else
 #include <stdint.h>
-#endif
 #include "sds.h"
 
 int stringmatchlen(const char *p, int plen, const char *s, int slen, int nocase);
@@ -54,29 +49,8 @@ int pathIsBaseName(char *path);
 int utilTest(int argc, char **argv);
 #endif
 
-
-//@Kurt hacked
-#ifndef SIZE_MAX
-# if __WORDSIZE == 64
-#  define SIZE_MAX		(18446744073709551615UL)
-# else
-#  define SIZE_MAX		(4294967295U)
-# endif
-#endif
-
-#ifndef UINT32_MAX
-# define UINT32_MAX		(4294967295U)
-#endif
-
-#ifndef INT32_MAX
-# define INT32_MAX		(2147483647)
-#endif
-
-# if __WORDSIZE == 64
-#  define UINT64_C(c)	c ## UL
-# else
-#  define UINT64_C(c)	c ## ULL
-#endif
-
+#define xstrcasecmp(s1, s2)   strcasecmp((const char*)(s1), (s2))
+#define xsdslen(s)            sdslen((sds)(s))
+#define xsdsIncrLen(s, i)     sdsIncrLen((sds)(s), (i))
 
 #endif

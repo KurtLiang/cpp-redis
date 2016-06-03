@@ -37,17 +37,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE. */
 
+//@Kurt hacked
+
+#define __STDC_CONSTANT_MACROS
+
 #include <stdint.h>
 
-
-//@Kurt hacked
-#ifndef UINT64_C
-# if __WORDSIZE == 64
-#  define UINT64_C(c)	c ## UL
-# else
-#  define UINT64_C(c)	c ## ULL
-#endif
-#endif
 
 static const uint64_t crc64_tab[256] = {
     UINT64_C(0x0000000000000000), UINT64_C(0x7ad870c830358979),

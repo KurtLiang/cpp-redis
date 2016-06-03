@@ -60,4 +60,8 @@
 #define _LARGEFILE_SOURCE
 #define _FILE_OFFSET_BITS 64
 
+//@Kurt hacked
+#define __STDC_LIMIT_MACROS
+#define __STDC_CONSTANT_MACROS
+
 #endif

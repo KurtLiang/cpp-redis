@@ -224,7 +224,7 @@ static char *loadIntegerObject(int enctype) {
 
     /* convert val into string */
     char *buf;
-    buf = zmalloc(sizeof(char) * 128);
+    buf =(char*)zmalloc(sizeof(char) * 128);
     sprintf(buf, "%lld", val);
     return buf;
 }
@@ -236,13 +236,13 @@ static char* loadLzfStringObject() {
     if ((clen = loadLength(NULL)) == RDB_LENERR) return NULL;
     if ((slen = loadLength(NULL)) == RDB_LENERR) return NULL;
 
-    c = zmalloc(clen);
+    c = (char*)zmalloc(clen);
     if (!readBytes(c, clen)) {
         zfree(c);
         return NULL;
     }
 
-    s = zmalloc(slen+1);
+    s = (char*)zmalloc(slen+1);
     if (lzf_decompress(c,clen,s,slen) == 0) {
         zfree(c); zfree(s);
         return NULL;
@@ -276,7 +276,7 @@ static char* loadStringObject() {
 
     if (len == RDB_LENERR) return NULL;
 
-    char *buf = zmalloc(sizeof(char) * (len+1));
+    char *buf = (char*)zmalloc(sizeof(char) * (len+1));
     if (buf == NULL) return NULL;
     buf[len] = '\0';
     if (!readBytes(buf, len)) {
@@ -310,7 +310,7 @@ static double* loadDoubleValue() {
 
     if (!readBytes(&len,1)) return NULL;
 
-    val = zmalloc(sizeof(double));
+    val = (double*)zmalloc(sizeof(double));
     switch(len) {
     case 255: *val = R_NegInf;  return val;
     case 254: *val = R_PosInf;  return val;
@@ -622,7 +622,7 @@ void process(void) {
 
     /* Verify checksum */
     if (dump_version >= 5) {
-        uint64_t crc = crc64(0,positions[0].data,positions[0].size);
+        uint64_t crc = crc64(0, (unsigned char*)positions[0].data,positions[0].size);
         uint64_t crc2;
         unsigned char *p = (unsigned char*)positions[0].data+positions[0].size;
         crc2 = ((uint64_t)p[0] << 0) |

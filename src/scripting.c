@@ -813,10 +813,16 @@ void luaLoadLib(lua_State *lua, const char *libname, lua_CFunction luafunc) {
   lua_call(lua, 1, 0);
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 LUALIB_API int (luaopen_cjson) (lua_State *L);
 LUALIB_API int (luaopen_struct) (lua_State *L);
 LUALIB_API int (luaopen_cmsgpack) (lua_State *L);
 LUALIB_API int (luaopen_bit) (lua_State *L);
+#ifdef __cplusplus
+}
+#endif
 
 void luaLoadLibraries(lua_State *lua) {
     luaLoadLib(lua, "", luaopen_base);
@@ -1943,7 +1949,7 @@ sds ldbCatStackValue(sds s, lua_State *lua, int idx) {
 /* Produce a debugger log entry representing the value of the Lua object
  * currently on the top of the stack. The element is ot popped nor modified.
  * Check ldbCatStackValue() for the actual implementation. */
-void ldbLogStackValue(lua_State *lua, char *prefix) {
+void ldbLogStackValue(lua_State *lua, const char *prefix) {
     sds s = sdsnew(prefix);
     s = ldbCatStackValue(s,lua,-1);
     ldbLogWithMaxLen(s);

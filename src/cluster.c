@@ -3659,7 +3659,7 @@ void clusterSetMaster(clusterNode *n) {
 
 struct redisNodeFlags {
     uint16_t flag;
-    char *name;
+    const char *name;
 };
 
 static struct redisNodeFlags redisNodeFlagsTable[] = {

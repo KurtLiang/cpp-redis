@@ -38,11 +38,11 @@
 /* Dictionary type for latency events. */
 int dictStringKeyCompare(void *privdata, const void *key1, const void *key2) {
     UNUSED(privdata);
-    return strcmp(key1,key2) == 0;
+    return strcmp((const char*)key1, (const char*)key2) == 0;
 }
 
 unsigned int dictStringHash(const void *key) {
-    return dictGenHashFunction(key, strlen(key));
+    return dictGenHashFunction(key, strlen((const char*)key));
 }
 
 void dictVanillaFree(void *privdata, void *val);
@@ -96,13 +96,13 @@ void latencyMonitorInit(void) {
  * is a macro that only adds the sample if the latency is higher than
  * server.latency_monitor_threshold. */
 void latencyAddSample(const char *event, mstime_t latency) {
-    struct latencyTimeSeries *ts = dictFetchValue(server.latency_events,event);
+    struct latencyTimeSeries *ts = (latencyTimeSeries*)dictFetchValue(server.latency_events,event);
     time_t now = time(NULL);
     int prev;
 
     /* Create the time series if it does not exist. */
     if (ts == NULL) {
-        ts = zmalloc(sizeof(*ts));
+        ts = (latencyTimeSeries*)zmalloc(sizeof(*ts));
         ts->idx = 0;
         ts->max = 0;
         memset(ts->samples,0,sizeof(ts->samples));
@@ -138,7 +138,7 @@ int latencyResetEvent(char *event_to_reset) {
 
     di = dictGetSafeIterator(server.latency_events);
     while((de = dictNext(di)) != NULL) {
-        char *event = dictGetKey(de);
+        char *event = (char*)dictGetKey(de);
 
         if (event_to_reset == NULL || strcasecmp(event,event_to_reset) == 0) {
             dictDelete(server.latency_events, event);
@@ -157,7 +157,7 @@ int latencyResetEvent(char *event_to_reset) {
  * If the specified event has no elements the structure is populate with
  * zero values. */
 void analyzeLatencyForEvent(char *event, struct latencyStats *ls) {
-    struct latencyTimeSeries *ts = dictFetchValue(server.latency_events,event);
+    struct latencyTimeSeries *ts = (latencyTimeSeries*)dictFetchValue(server.latency_events,event);
     int j;
     uint64_t sum;
 
@@ -250,8 +250,8 @@ sds createLatencyReport(void) {
 
     di = dictGetSafeIterator(server.latency_events);
     while((de = dictNext(di)) != NULL) {
-        char *event = dictGetKey(de);
-        struct latencyTimeSeries *ts = dictGetVal(de);
+        char *event = (char*)dictGetKey(de);
+        struct latencyTimeSeries *ts = (latencyTimeSeries*)dictGetVal(de);
         struct latencyStats ls;
 
         if (ts == NULL) continue;
@@ -272,7 +272,7 @@ sds createLatencyReport(void) {
 
         /* Fork */
         if (!strcasecmp(event,"fork")) {
-            char *fork_quality;
+            const char *fork_quality;
             if (server.stat_fork_rate < 10) {
                 fork_quality = "terrible";
                 advise_better_vm = 1;
@@ -499,8 +499,8 @@ void latencyCommandReplyWithLatestEvents(client *c) {
     addReplyMultiBulkLen(c,dictSize(server.latency_events));
     di = dictGetIterator(server.latency_events);
     while((de = dictNext(di)) != NULL) {
-        char *event = dictGetKey(de);
-        struct latencyTimeSeries *ts = dictGetVal(de);
+        char *event = (char*)dictGetKey(de);
+        struct latencyTimeSeries *ts = (latencyTimeSeries*)dictGetVal(de);
         int last = (ts->idx + LATENCY_TS_LEN - 1) % LATENCY_TS_LEN;
 
         addReplyMultiBulkLen(c,4);
@@ -567,15 +567,15 @@ sds latencyCommandGenSparkeline(char *event, struct latencyTimeSeries *ts) {
 void latencyCommand(client *c) {
     struct latencyTimeSeries *ts;
 
-    if (!strcasecmp(c->argv[1]->ptr,"history") && c->argc == 3) {
+    if (!xstrcasecmp(c->argv[1]->ptr,"history") && c->argc == 3) {
         /* LATENCY HISTORY <event> */
-        ts = dictFetchValue(server.latency_events,c->argv[2]->ptr);
+        ts = (latencyTimeSeries*)dictFetchValue(server.latency_events,c->argv[2]->ptr);
         if (ts == NULL) {
             addReplyMultiBulkLen(c,0);
         } else {
             latencyCommandReplyWithSamples(c,ts);
         }
-    } else if (!strcasecmp(c->argv[1]->ptr,"graph") && c->argc == 3) {
+    } else if (!xstrcasecmp(c->argv[1]->ptr,"graph") && c->argc == 3) {
         /* LATENCY GRAPH <event> */
         sds graph;
         dictEntry *de;
@@ -583,22 +583,22 @@ void latencyCommand(client *c) {
 
         de = dictFind(server.latency_events,c->argv[2]->ptr);
         if (de == NULL) goto nodataerr;
-        ts = dictGetVal(de);
-        event = dictGetKey(de);
+        ts = (latencyTimeSeries*)dictGetVal(de);
+        event = (char*)dictGetKey(de);
 
         graph = latencyCommandGenSparkeline(event,ts);
         addReplyBulkCString(c,graph);
         sdsfree(graph);
-    } else if (!strcasecmp(c->argv[1]->ptr,"latest") && c->argc == 2) {
+    } else if (!xstrcasecmp(c->argv[1]->ptr,"latest") && c->argc == 2) {
         /* LATENCY LATEST */
         latencyCommandReplyWithLatestEvents(c);
-    } else if (!strcasecmp(c->argv[1]->ptr,"doctor") && c->argc == 2) {
+    } else if (!xstrcasecmp(c->argv[1]->ptr,"doctor") && c->argc == 2) {
         /* LATENCY DOCTOR */
         sds report = createLatencyReport();
 
         addReplyBulkCBuffer(c,report,sdslen(report));
         sdsfree(report);
-    } else if (!strcasecmp(c->argv[1]->ptr,"reset") && c->argc >= 2) {
+    } else if (!xstrcasecmp(c->argv[1]->ptr,"reset") && c->argc >= 2) {
         /* LATENCY RESET */
         if (c->argc == 2) {
             addReplyLongLong(c,latencyResetEvent(NULL));
@@ -606,7 +606,7 @@ void latencyCommand(client *c) {
             int j, resets = 0;
 
             for (j = 2; j < c->argc; j++)
-                resets += latencyResetEvent(c->argv[j]->ptr);
+                resets += latencyResetEvent((char*)c->argv[j]->ptr);
             addReplyLongLong(c,resets);
         }
     } else {

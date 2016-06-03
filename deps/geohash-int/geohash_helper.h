@@ -32,6 +32,10 @@
 #ifndef GEOHASH_HELPER_HPP_
 #define GEOHASH_HELPER_HPP_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <math.h>
 #include "geohash.h"
 
@@ -67,5 +71,9 @@ int geohashGetDistanceIfInRadius(double x1, double y1,
 int geohashGetDistanceIfInRadiusWGS84(double x1, double y1, double x2,
                                       double y2, double radius,
                                       double *distance);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GEOHASH_HELPER_HPP_ */

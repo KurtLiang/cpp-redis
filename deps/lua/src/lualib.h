@@ -8,6 +8,10 @@
 #ifndef lualib_h
 #define lualib_h
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "lua.h"
 
 
@@ -47,6 +51,10 @@ LUALIB_API void (luaL_openlibs) (lua_State *L);
 
 #ifndef lua_assert
 #define lua_assert(x)	((void)0)
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 

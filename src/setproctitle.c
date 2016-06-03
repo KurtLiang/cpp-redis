@@ -33,7 +33,7 @@
 #include <stdarg.h>	/* va_list va_start va_end */
 #include <stdlib.h>	/* malloc(3) setenv(3) clearenv(3) setproctitle(3) getprogname(3) */
 #include <stdio.h>	/* vsnprintf(3) snprintf(3) */
-
+#include <stdbool.h>
 #include <string.h>	/* strlen(3) strchr(3) strdup(3) memset(3) memcpy(3) */
 
 #include <errno.h>	/* errno program_invocation_name program_invocation_short_name */

@@ -113,7 +113,7 @@ void processUnblockedClients(void) {
     while (listLength(server.unblocked_clients)) {
         ln = listFirst(server.unblocked_clients);
         serverAssert(ln != NULL);
-        c = ln->value;
+        c = (client*)ln->value;
         listDelNode(server.unblocked_clients,ln);
         c->flags &= ~CLIENT_UNBLOCKED;
 
@@ -177,7 +177,7 @@ void disconnectAllBlockedClients(void) {
 
     listRewind(server.clients,&li);
     while((ln = listNext(&li))) {
-        client *c = listNodeValue(ln);
+        client *c = (client*)listNodeValue(ln);
 
         if (c->flags & CLIENT_BLOCKED) {
             addReplySds(c,sdsnew(
