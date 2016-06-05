@@ -72,7 +72,9 @@ static void aeApiFree(aeEventLoop *eventLoop) {
 
 static int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) {
     aeApiState *state = (aeApiState*)eventLoop->apidata;
-    struct epoll_event ee = {0}; /* avoid valgrind warning */
+    struct epoll_event ee;
+    memset(&ee, 0, sizeof(ee));
+
     /* If the fd was already monitored for some event, we need a MOD
      * operation. Otherwise we need an ADD operation. */
     int op = eventLoop->events[fd].mask == AE_NONE ?
@@ -89,7 +91,8 @@ static int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) {
 
 static void aeApiDelEvent(aeEventLoop *eventLoop, int fd, int delmask) {
     aeApiState *state = (aeApiState*)eventLoop->apidata;
-    struct epoll_event ee = {0}; /* avoid valgrind warning */
+    struct epoll_event ee; /* avoid valgrind warning */
+    memset(&ee, 0, sizeof(ee));
     int mask = eventLoop->events[fd].mask & (~delmask);
 
     ee.events = 0;

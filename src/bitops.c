@@ -396,7 +396,7 @@ void printBits(unsigned char *p, unsigned long count) {
  * is multiplied by 'bits'. This is useful for the BITFIELD command. */
 int getBitOffsetFromArgument(client *c, robj *o, size_t *offset, int hash, int bits) {
     long long loffset;
-    char *err = "bit offset is not an integer or out of range";
+    const char *err = "bit offset is not an integer or out of range";
     char *p = (char*)o->ptr;
     size_t plen = sdslen(p);
     int usehash = 0;

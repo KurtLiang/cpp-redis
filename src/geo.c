@@ -82,7 +82,8 @@ void geoArrayFree(geoArray *ga) {
  * Helpers
  * ==================================================================== */
 int decodeGeohash(double bits, double *xy) {
-    GeoHashBits hash = {0};
+    GeoHashBits hash;
+    memset(&hash, 0, sizeof(hash));
     hash.bits = (uint64_t)bits;
     hash.step = GEO_STEP_MAX;
 
@@ -223,7 +224,8 @@ int geoAppendIfWithinRadius(geoArray *ga, double lon, double lat, double radius,
 int geoGetPointsInRange(robj *zobj, double min, double max, double lon, double lat, double radius, geoArray *ga) {
     /* minex 0 = include min in range; maxex 1 = exclude max in range */
     /* That's: min <= val < max */
-    zrangespec range = {0};
+    zrangespec range;
+    memset(&range, 0, sizeof(range));
     range.min = min;
     range.max = max;
     range.minex = 0;
