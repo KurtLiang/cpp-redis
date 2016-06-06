@@ -8,8 +8,6 @@ extern "C" {
 #endif
 
 
-TAF_API int taf_main(int argc, char *argv[]);
-
 #ifdef __cplusplus
 }
 #endif

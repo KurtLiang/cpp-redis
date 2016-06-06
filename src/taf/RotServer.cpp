@@ -21,9 +21,21 @@ void RotServer::destroyApp()
 
 
 
-/* portal for redis node integrated with TAF */
-int taf_main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-    std::cout << "hello world" << std::endl;
-    return 0;
+    try
+    {
+        g_app.main(argc, argv);
+        g_app.waitForShutdown();
+    }
+    catch(std::exception &e)
+    {
+        std::cerr << "std::exception:" << e.what() << std::endl;
+    }
+    catch(...)
+    {
+        std::cerr << "unknown exception." << std::endl;
+    }
+
+    return -1;
 }
