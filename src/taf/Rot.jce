@@ -1,0 +1,17 @@
+module Comm
+{
+    interface Rot
+    {
+        int setItem(string sApp, string sK, string sV);
+
+        int getItem(string sApp, string sK, out string sV);
+
+        int delItem(string sApp, string sK);
+
+        int setItemBatch(string sApp, map<string, string> mKVs);
+
+        int getItemBatch(string sApp, vector<string> vKs, out map<string, string> mKVs);
+
+        int delItemBatch(string sApp, vector<string> vKs, out map<string, int> mKVs);
+    };
+};
