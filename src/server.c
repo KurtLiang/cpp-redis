@@ -3905,6 +3905,7 @@ int redisIsSupervised(int mode) {
 }
 
 
+#ifndef REDIS_ON_TAF
 int main(int argc, char **argv) {
     struct timeval tv;
     int j;
@@ -4080,5 +4081,6 @@ int main(int argc, char **argv) {
     aeDeleteEventLoop(server.el);
     return 0;
 }
+#endif
 
 /* The End */
