@@ -135,12 +135,12 @@ REDIS_CHECK_AOF_OBJ=redis-check-aof.o
 
 AR := ar
 ARFLAGS := crus
-STATIC_REDIS_LIB := libredis.a
+REDIS_STATIC_LIB := libredis.a
 #put this target at the first place, override default
 .PHONY : redis-on-taf
 redis-on-taf : CFLAGS += -DREDIS_ON_TAF
 redis-on-taf : $(REDIS_SERVER_OBJ)
-	$(AR) $(ARFLAGS) $(STATIC_REDIS_LIB) $^
+	$(AR) $(ARFLAGS) $(REDIS_STATIC_LIB) $^
 
 all: $(REDIS_SERVER_NAME) $(REDIS_SENTINEL_NAME) $(REDIS_CLI_NAME) $(REDIS_BENCHMARK_NAME) $(REDIS_CHECK_RDB_NAME) $(REDIS_CHECK_AOF_NAME)
 	@echo ""
@@ -216,7 +216,7 @@ $(REDIS_CHECK_AOF_NAME): $(REDIS_CHECK_AOF_OBJ)
 	$(REDIS_CC) -c $<
 
 clean:
-	rm -rf $(REDIS_SERVER_NAME) $(REDIS_SENTINEL_NAME) $(REDIS_CLI_NAME) $(REDIS_BENCHMARK_NAME) $(REDIS_CHECK_RDB_NAME) $(REDIS_CHECK_AOF_NAME) *.o *.gcda *.gcno *.gcov redis.info lcov-html
+	rm -rf $(REDIS_STATIC_LIB) $(REDIS_SERVER_NAME) $(REDIS_SENTINEL_NAME) $(REDIS_CLI_NAME) $(REDIS_BENCHMARK_NAME) $(REDIS_CHECK_RDB_NAME) $(REDIS_CHECK_AOF_NAME) *.o *.gcda *.gcno *.gcov redis.info lcov-html
 
 .PHONY: clean
 
