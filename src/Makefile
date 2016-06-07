@@ -133,10 +133,14 @@ REDIS_CHECK_RDB_NAME=redis-check-rdb
 REDIS_CHECK_AOF_NAME=redis-check-aof
 REDIS_CHECK_AOF_OBJ=redis-check-aof.o
 
+AR := ar
+ARFLAGS := crus
+STATIC_REDIS_LIB := libredis.a
 #put this target at the first place, override default
 .PHONY : redis-on-taf
 redis-on-taf : CFLAGS += -DREDIS_ON_TAF
 redis-on-taf : $(REDIS_SERVER_OBJ)
+	$(AR) $(ARFLAGS) $(STATIC_REDIS_LIB) $^
 
 all: $(REDIS_SERVER_NAME) $(REDIS_SENTINEL_NAME) $(REDIS_CLI_NAME) $(REDIS_BENCHMARK_NAME) $(REDIS_CHECK_RDB_NAME) $(REDIS_CHECK_AOF_NAME)
 	@echo ""
