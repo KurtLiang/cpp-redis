@@ -392,7 +392,7 @@ void keysCommand(client *c) {
  * returned by the dictionary iterator into a list. */
 void scanCallback(void *privdata, const dictEntry *de) {
     void **pd = (void**) privdata;
-    list *keys = (list*)pd[0];
+    dlist *keys = (dlist*)pd[0];
     robj *o = (robj*)pd[1];
     robj *key, *val = NULL;
 
@@ -451,7 +451,7 @@ int parseScanCursorOrReply(client *c, robj *o, unsigned long *cursor) {
  * of every element on the Hash. */
 void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
     int i, j;
-    list *keys = listCreate();
+    dlist *keys = listCreate();
     listNode *node, *nextnode;
     long count = 10;
     sds pat = NULL;

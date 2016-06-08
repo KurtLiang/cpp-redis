@@ -61,9 +61,9 @@ struct ldbState {
     int fd;     /* Socket of the debugging client. */
     int active; /* Are we debugging EVAL right now? */
     int forked; /* Is this a fork()ed debugging session? */
-    list *logs; /* List of messages to send to the client. */
-    list *traces; /* Messages about Redis commands executed since last stop.*/
-    list *children; /* All forked debugging sessions pids. */
+    dlist *logs; /* List of messages to send to the client. */
+    dlist *traces; /* Messages about Redis commands executed since last stop.*/
+    dlist *children; /* All forked debugging sessions pids. */
     int bp[LDB_BREAKPOINTS_MAX]; /* An array of breakpoints line numbers. */
     int bpcount; /* Number of valid entries inside bp. */
     int step;   /* Stop at next line ragardless of breakpoints. */
@@ -1509,7 +1509,7 @@ void ldbInit(void) {
 }
 
 /* Remove all the pending messages in the specified list. */
-void ldbFlushLog(list *log) {
+void ldbFlushLog(dlist *log) {
     listNode *ln;
 
     while((ln = listFirst(log)) != NULL)

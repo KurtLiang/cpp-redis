@@ -430,7 +430,7 @@ void dictVanillaFree(void *privdata, void *val)
 void dictListDestructor(void *privdata, void *val)
 {
     DICT_NOTUSED(privdata);
-    listRelease((list*)val);
+    listRelease((dlist*)val);
 }
 
 int dictSdsKeyCompare(void *privdata, const void *key1,

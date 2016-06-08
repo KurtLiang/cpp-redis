@@ -690,7 +690,7 @@ clusterNode *createClusterNode(char *nodename, int flags) {
  * failure report from the same sender. 1 is returned if a new failure
  * report is created. */
 int clusterNodeAddFailureReport(clusterNode *failing, clusterNode *sender) {
-    list *l = failing->fail_reports;
+    dlist *l = failing->fail_reports;
     listNode *ln;
     listIter li;
     clusterNodeFailReport *fr;
@@ -720,7 +720,7 @@ int clusterNodeAddFailureReport(clusterNode *failing, clusterNode *sender) {
  * older than the global node timeout, so we don't just trust the number
  * of failure reports from other nodes. */
 void clusterNodeCleanupFailureReports(clusterNode *node) {
-    list *l = node->fail_reports;
+    dlist *l = node->fail_reports;
     listNode *ln;
     listIter li;
     clusterNodeFailReport *fr;
@@ -747,7 +747,7 @@ void clusterNodeCleanupFailureReports(clusterNode *node) {
  * The function returns 1 if the failure report was found and removed.
  * Otherwise 0 is returned. */
 int clusterNodeDelFailureReport(clusterNode *node, clusterNode *sender) {
-    list *l = node->fail_reports;
+    dlist *l = node->fail_reports;
     listNode *ln;
     listIter li;
     clusterNodeFailReport *fr;

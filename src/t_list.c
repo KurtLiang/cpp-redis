@@ -615,7 +615,7 @@ void rpoplpushCommand(client *c) {
  * timeout */
 void blockForKeys(client *c, robj **keys, int numkeys, mstime_t timeout, robj *target) {
     dictEntry *de;
-    list *l;
+    dlist *l;
     int j;
 
     c->bpop.timeout = timeout;
@@ -639,7 +639,7 @@ void blockForKeys(client *c, robj **keys, int numkeys, mstime_t timeout, robj *t
             incrRefCount(keys[j]);
             serverAssertWithInfo(c,keys[j],retval == DICT_OK);
         } else {
-            l = (list*)dictGetVal(de);
+            l = (dlist*)dictGetVal(de);
         }
         listAddNodeTail(l,c);
     }
@@ -651,7 +651,7 @@ void blockForKeys(client *c, robj **keys, int numkeys, mstime_t timeout, robj *t
 void unblockClientWaitingData(client *c) {
     dictEntry *de;
     dictIterator *di;
-    list *l;
+    dlist *l;
 
     serverAssertWithInfo(c,NULL,dictSize(c->bpop.keys) != 0);
     di = dictGetIterator(c->bpop.keys);
@@ -660,7 +660,7 @@ void unblockClientWaitingData(client *c) {
         robj *key = (robj*)dictGetKey(de);
 
         /* Remove this client from the list of clients waiting for this key. */
-        l = (list*)dictFetchValue(c->db->blocking_keys,key);
+        l = (dlist*)dictFetchValue(c->db->blocking_keys,key);
         serverAssertWithInfo(c,key,l != NULL);
         listDelNode(l,listSearchKey(l,c));
         /* If the list is empty we need to remove it to avoid wasting memory */
@@ -788,7 +788,7 @@ int serveClientBlockedOnList(client *receiver, robj *key, robj *dstkey, redisDb 
  * to serve because of the PUSH side of BRPOPLPUSH. */
 void handleClientsBlockedOnLists(void) {
     while(listLength(server.ready_keys) != 0) {
-        list *l;
+        dlist *l;
 
         /* Point server.ready_keys to a fresh list and save the current one
          * locally. This way as we run the old list we are free to call
@@ -815,7 +815,7 @@ void handleClientsBlockedOnLists(void) {
                  * this key, from the first blocked to the last. */
                 de = dictFind(rl->db->blocking_keys,rl->key);
                 if (de) {
-                    list *clients = (list*)dictGetVal(de);
+                    dlist *clients = (dlist*)dictGetVal(de);
                     int numclients = listLength(clients);
 
                     while(numclients--) {

@@ -191,7 +191,7 @@ int prepareClientToWrite(client *c) {
 
 /* Create a duplicate of the last object in the reply list when
  * it is not exclusively owned by the reply list. */
-robj *dupLastObjectIfNeeded(list *reply) {
+robj *dupLastObjectIfNeeded(dlist *reply) {
     robj *dup, *cur;
     listNode *ln;
     serverAssert(listLength(reply) > 0);
@@ -842,7 +842,7 @@ void freeClient(client *c) {
             if (c->repldbfd != -1) close(c->repldbfd);
             if (c->replpreamble) sdsfree(c->replpreamble);
         }
-        list *l = (c->flags & CLIENT_MONITOR) ? server.monitors : server.slaves;
+        dlist *l = (c->flags & CLIENT_MONITOR) ? server.monitors : server.slaves;
         ln = listSearchKey(l,c);
         serverAssert(ln != NULL);
         listDelNode(l,ln);

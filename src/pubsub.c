@@ -57,7 +57,7 @@ int clientSubscriptionsCount(client *c) {
  * 0 if the client was already subscribed to that channel. */
 int pubsubSubscribeChannel(client *c, robj *channel) {
     dictEntry *de;
-    list *clients = NULL;
+    dlist *clients = NULL;
     int retval = 0;
 
     /* Add the channel to the client -> channels hash table */
@@ -71,7 +71,7 @@ int pubsubSubscribeChannel(client *c, robj *channel) {
             dictAdd(server.pubsub_channels,channel,clients);
             incrRefCount(channel);
         } else {
-            clients = (list*)dictGetVal(de);
+            clients = (dlist*)dictGetVal(de);
         }
         listAddNodeTail(clients,c);
     }
@@ -87,7 +87,7 @@ int pubsubSubscribeChannel(client *c, robj *channel) {
  * 0 if the client was not subscribed to the specified channel. */
 int pubsubUnsubscribeChannel(client *c, robj *channel, int notify) {
     dictEntry *de;
-    list *clients;
+    dlist *clients;
     listNode *ln;
     int retval = 0;
 
@@ -99,7 +99,7 @@ int pubsubUnsubscribeChannel(client *c, robj *channel, int notify) {
         /* Remove the client from the channel -> clients list hash table */
         de = dictFind(server.pubsub_channels,channel);
         serverAssertWithInfo(c,NULL,de != NULL);
-        clients = (list*)dictGetVal(de);
+        clients = (dlist*)dictGetVal(de);
         ln = listSearchKey(clients,c);
         serverAssertWithInfo(c,NULL,ln != NULL);
         listDelNode(clients,ln);
@@ -231,7 +231,7 @@ int pubsubPublishMessage(robj *channel, robj *message) {
     /* Send to clients listening for that channel */
     de = dictFind(server.pubsub_channels,channel);
     if (de) {
-        list *lst = (list*)dictGetVal(de);
+        dlist *lst = (dlist*)dictGetVal(de);
         listNode *ln;
         listIter li;
 
@@ -355,7 +355,7 @@ void pubsubCommand(client *c) {
 
         addReplyMultiBulkLen(c,(c->argc-2)*2);
         for (j = 2; j < c->argc; j++) {
-            list *l = (list*)dictFetchValue(server.pubsub_channels,c->argv[j]);
+            dlist *l = (dlist*)dictFetchValue(server.pubsub_channels,c->argv[j]);
 
             addReplyBulk(c,c->argv[j]);
             addReplyLongLong(c,l ? listLength(l) : 0);

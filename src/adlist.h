@@ -44,14 +44,14 @@ typedef struct listIter {
     int direction;
 } listIter;
 
-typedef struct list {
+typedef struct dlist {
     listNode *head;
     listNode *tail;
     void *(*dup)(void *ptr);
     void (*free)(void *ptr);
     int (*match)(void *ptr, void *key);
     unsigned long len;
-} list;
+} dlist;
 
 /* Functions implemented as macros */
 #define listLength(l) ((l)->len)
@@ -70,21 +70,21 @@ typedef struct list {
 #define listGetMatchMethod(l) ((l)->match)
 
 /* Prototypes */
-list *listCreate(void);
-void listRelease(list *list);
-list *listAddNodeHead(list *list, void *value);
-list *listAddNodeTail(list *list, void *value);
-list *listInsertNode(list *list, listNode *old_node, void *value, int after);
-void listDelNode(list *list, listNode *node);
-listIter *listGetIterator(list *list, int direction);
+dlist *listCreate(void);
+void listRelease(dlist *list);
+dlist *listAddNodeHead(dlist *list, void *value);
+dlist *listAddNodeTail(dlist *list, void *value);
+dlist *listInsertNode(dlist *list, listNode *old_node, void *value, int after);
+void listDelNode(dlist *list, listNode *node);
+listIter *listGetIterator(dlist *list, int direction);
 listNode *listNext(listIter *iter);
 void listReleaseIterator(listIter *iter);
-list *listDup(list *orig);
-listNode *listSearchKey(list *list, void *key);
-listNode *listIndex(list *list, long index);
-void listRewind(list *list, listIter *li);
-void listRewindTail(list *list, listIter *li);
-void listRotate(list *list);
+dlist *listDup(dlist *orig);
+listNode *listSearchKey(dlist *list, void *key);
+listNode *listIndex(dlist *list, long index);
+void listRewind(dlist *list, listIter *li);
+void listRewindTail(dlist *list, listIter *li);
+void listRotate(dlist *list);
 
 /* Directions for iterators */
 #define AL_START_HEAD 0

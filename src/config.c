@@ -1280,7 +1280,7 @@ void rewriteConfigAppendLine(struct rewriteConfigState *state, sds line) {
 
 /* Populate the option -> list of line numbers map. */
 void rewriteConfigAddLineNumberToOption(struct rewriteConfigState *state, sds option, int linenum) {
-    list *l = (list*)dictFetchValue(state->option_to_line,option);
+    dlist *l = (dlist*)dictFetchValue(state->option_to_line,option);
 
     if (l == NULL) {
         l = listCreate();
@@ -1379,7 +1379,7 @@ struct rewriteConfigState *rewriteConfigReadOldFile(char *path) {
  * in any way. */
 void rewriteConfigRewriteLine(struct rewriteConfigState *state, const char *option, sds line, int force) {
     sds o = sdsnew(option);
-    list *l = (list*)dictFetchValue(state->option_to_line,o);
+    dlist *l = (dlist*)dictFetchValue(state->option_to_line,o);
 
     rewriteConfigMarkAsProcessed(state,option);
 
@@ -1661,7 +1661,7 @@ void rewriteConfigRemoveOrphaned(struct rewriteConfigState *state) {
     dictEntry *de;
 
     while((de = dictNext(di)) != NULL) {
-        list *l = (list*)dictGetVal(de);
+        dlist *l = (dlist*)dictGetVal(de);
         sds option = (sds)dictGetKey(de);
 
         /* Don't blank lines about options the rewrite process

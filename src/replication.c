@@ -165,7 +165,7 @@ void feedReplicationBacklogWithObject(robj *o) {
     feedReplicationBacklog(p,len);
 }
 
-void replicationFeedSlaves(list *slaves, int dictid, robj **argv, int argc) {
+void replicationFeedSlaves(dlist *slaves, int dictid, robj **argv, int argc) {
     listNode *ln;
     listIter li;
     int j, len;
@@ -260,7 +260,7 @@ void replicationFeedSlaves(list *slaves, int dictid, robj **argv, int argc) {
     }
 }
 
-void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv, int argc) {
+void replicationFeedMonitors(client *c, dlist *monitors, int dictid, robj **argv, int argc) {
     listNode *ln;
     listIter li;
     int j;

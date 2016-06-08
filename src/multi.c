@@ -200,7 +200,7 @@ typedef struct watchedKey {
 
 /* Watch for the specified key */
 void watchForKey(client *c, robj *key) {
-    list *clients = NULL;
+    dlist *clients = NULL;
     listIter li;
     listNode *ln;
     watchedKey *wk;
@@ -213,7 +213,7 @@ void watchForKey(client *c, robj *key) {
             return; /* Key already watched */
     }
     /* This key is not already watched in this DB. Let's add it */
-    clients = (list*)dictFetchValue(c->db->watched_keys,key);
+    clients = (dlist*)dictFetchValue(c->db->watched_keys,key);
     if (!clients) {
         clients = listCreate();
         dictAdd(c->db->watched_keys,key,clients);
@@ -237,13 +237,13 @@ void unwatchAllKeys(client *c) {
     if (listLength(c->watched_keys) == 0) return;
     listRewind(c->watched_keys,&li);
     while((ln = listNext(&li))) {
-        list *clients;
+        dlist *clients;
         watchedKey *wk;
 
         /* Lookup the watched key -> clients list and remove the client
          * from the list */
         wk = (watchedKey*)listNodeValue(ln);
-        clients = (list*)dictFetchValue(wk->db->watched_keys, wk->key);
+        clients = (dlist*)dictFetchValue(wk->db->watched_keys, wk->key);
         serverAssertWithInfo(c,NULL,clients != NULL);
         listDelNode(clients,listSearchKey(clients,c));
         /* Kill the entry at all if this was the only client */
@@ -259,12 +259,12 @@ void unwatchAllKeys(client *c) {
 /* "Touch" a key, so that if this key is being WATCHed by some client the
  * next EXEC will fail. */
 void touchWatchedKey(redisDb *db, robj *key) {
-    list *clients;
+    dlist *clients;
     listIter li;
     listNode *ln;
 
     if (dictSize(db->watched_keys) == 0) return;
-    clients = (list*)dictFetchValue(db->watched_keys, key);
+    clients = (dlist*)dictFetchValue(db->watched_keys, key);
     if (!clients) return;
 
     /* Mark all the clients watching this key as CLIENT_DIRTY_CAS */

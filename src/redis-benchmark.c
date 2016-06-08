@@ -69,7 +69,7 @@ static struct config {
     long long totlatency;
     long long *latency;
     const char *title;
-    list *clients;
+    dlist *clients;
     int quiet;
     int csv;
     int loop;
