@@ -1429,7 +1429,9 @@ void createSharedObjects(void) {
     shared.maxstring = createStringObject("maxstring",9);
 }
 
-void initServerConfig(void) {
+void initServerConfig(int redis_on_taf) {
+    UNUSED(redis_on_taf);
+
     int j;
 
     getRandomHexChars(server.runid,CONFIG_RUN_ID_SIZE);
@@ -1829,7 +1831,9 @@ void resetServerStats(void) {
     server.aof_delayed_fsync = 0;
 }
 
-void initServer(void) {
+void initServer(int redis_on_taf) {
+    UNUSED(redis_on_taf);
+
     int j;
 
     signal(SIGHUP, SIG_IGN);
@@ -1843,15 +1847,25 @@ void initServer(void) {
 
     server.pid = getpid();
     server.current_client = NULL;
-    server.clients = listCreate();
-    server.clients_to_close = listCreate();
-    server.slaves = listCreate();
-    server.monitors = listCreate();
+    if (!redis_on_taf)
+    {
+        server.slaves   = listCreate();
+        server.monitors = listCreate();
+    }
+    else
+    {
+        server.slaves   = NULL;
+        server.monitors = NULL;
+    }
+    //TODO @Kurt do we need these list?
+    server.clients               = listCreate();
+    server.clients_to_close      = listCreate();
     server.clients_pending_write = listCreate();
+    server.unblocked_clients     = listCreate();
+    server.ready_keys            = listCreate();
+    server.clients_waiting_acks  = listCreate();
+
     server.slaveseldb = -1; /* Force to emit the first SELECT command. */
-    server.unblocked_clients = listCreate();
-    server.ready_keys = listCreate();
-    server.clients_waiting_acks = listCreate();
     server.get_ack_from_slaves = 0;
     server.clients_paused = 0;
     server.system_memory_size = zmalloc_get_memory_size();
@@ -1878,10 +1892,13 @@ void initServer(void) {
         anetNonBlock(NULL,server.sofd);
     }
 
-    /* Abort if there are no listening sockets at all. */
-    if (server.ipfd_count == 0 && server.sofd < 0) {
-        serverLog(LL_WARNING, "Configured to not listen anywhere, exiting.");
-        exit(1);
+    if (!redis_on_taf)
+    {
+        /* Abort if there are no listening sockets at all. */
+        if (server.ipfd_count == 0 && server.sofd < 0) {
+            serverLog(LL_WARNING, "Configured to not listen anywhere, exiting.");
+            exit(1);
+        }
     }
 
     /* Create the Redis databases, and initialize other internal state. */
@@ -1895,10 +1912,20 @@ void initServer(void) {
         server.db[j].id = j;
         server.db[j].avg_ttl = 0;
     }
-    server.pubsub_channels = dictCreate(&keylistDictType,NULL);
-    server.pubsub_patterns = listCreate();
-    listSetFreeMethod(server.pubsub_patterns,freePubsubPattern);
-    listSetMatchMethod(server.pubsub_patterns,listMatchPubsubPattern);
+
+    if (!redis_on_taf)
+    {
+        server.pubsub_channels = dictCreate(&keylistDictType,NULL);
+        server.pubsub_patterns = listCreate();
+        listSetFreeMethod(server.pubsub_patterns,freePubsubPattern);
+        listSetMatchMethod(server.pubsub_patterns,listMatchPubsubPattern);
+    }
+    else
+    {
+        server.pubsub_channels = NULL;
+        server.pubsub_patterns = NULL;
+    }
+
     server.cronloops = 0;
     server.rdb_child_pid = -1;
     server.aof_child_pid = -1;
@@ -1963,11 +1990,16 @@ void initServer(void) {
     }
 
     if (server.cluster_enabled) clusterInit();
-    replicationScriptCacheInit();
-    scriptingInit(1);
-    slowlogInit();
+
     latencyMonitorInit();
-    bioInit();
+
+    if (!redis_on_taf)
+    {
+        replicationScriptCacheInit();
+        scriptingInit(1);
+        slowlogInit();
+        bioInit();
+    }
 }
 
 /* Populates the Redis Command Table starting from the hard coded list
@@ -3947,7 +3979,7 @@ int main(int argc, char **argv) {
     gettimeofday(&tv,NULL);
     dictSetHashFunctionSeed(tv.tv_sec^tv.tv_usec^getpid());
     server.sentinel_mode = checkForSentinelMode(argc,argv);
-    initServerConfig();
+    initServerConfig(0);
 
     /* Store the executable path and arguments in a safe place in order
      * to be able to restart the server later. */
@@ -4042,7 +4074,7 @@ int main(int argc, char **argv) {
     int background = server.daemonize && !server.supervised;
     if (background) daemonize();
 
-    initServer();
+    initServer(0);
     if (background || server.pidfile) createPidFile();
     redisSetProcTitle(argv[0]);
     redisAsciiArt();

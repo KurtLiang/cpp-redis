@@ -1635,6 +1635,12 @@ void pfmergeCommand(client *c);
 void pfdebugCommand(client *c);
 void latencyCommand(client *c);
 
+#ifdef REDIS_ON_TAF
+void initServerConfig(int redis_on_taf);
+void initServer(int redis_on_taf);
+void linuxMemoryWarnings(void);
+#endif
+
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));
 void free(void *ptr) __attribute__ ((deprecated));

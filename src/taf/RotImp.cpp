@@ -1,9 +1,17 @@
 
 #include "RotImp.h"
-#include "servant/Application.h"
-#include "server.h"
+#include "RotServer.h"
+#include "server.h" //redis server
+#include "ErrorCode.h"
 
-
+#define GetDb(db, appId, iret) \
+    auto db = g_app.lookforDb(appId);  \
+    if (db == nullptr)                  \
+    {                                   \
+        LOG->error() << __FUNCTION__  << "|" << " failed to locate db for app id:" << appId << endl; \
+        iret = ERR_INVAILDINPUT;        \
+        PROC_BREAK;                     \
+    }
 
 void RotImp::initialize()
 {
@@ -17,16 +25,36 @@ void RotImp::destroy()
 
 taf::Int32 RotImp::getAppName(taf::Int32 appId,std::string &appName,taf::JceCurrentPtr current)
 {
-    //TODO
+    appName = g_app.lookforAppName(appId);
+    if (appName.empty())
+        return ERR_NOEXISTS;
+
     return 0;
 }
 
 
+/*
+ * refer to setGenericCommand
+ */
 taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string & sV,taf::JceCurrentPtr current)
 {
-    //TODO
+    int iret = -1;
 
-    return 0;
+    PROC_BEGIN
+    __TRY__
+
+    GetDb(db, appId, iret);
+
+    robj *key=nullptr, *val=nullptr; //TODO
+    setKey(db, key, val);
+    ++server.dirty;
+
+    iret = 0;
+    __CATCH__
+    PROC_END
+
+    FDLOG() << __FUNCTION__ << "|" << iret << "|" << appId << "|" << sK << "|" << sV << endl;
+    return iret;
 }
 
 

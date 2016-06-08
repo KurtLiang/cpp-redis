@@ -1,5 +1,13 @@
 module Comm
 {
+    struct KeySetOption
+    {
+        0 optional byte set_if_not_exist;
+        1 optional byte set_if_exist;
+        2 optional byte set_expire;
+        3 optional long expire_time;
+    };
+
     interface Rot
     {
         int getAppName(int appId, out string appName);
@@ -11,7 +19,7 @@ module Comm
         /**
          * @brief  setCommand
          */
-        int set(int appId, string sK, string sV);
+        int set(int appId, string sK, string sV, KeySetOption option);
 
         /**
          * @brief  msetCommand
