@@ -30,7 +30,9 @@
 #ifndef _REDIS_FMACRO_H
 #define _REDIS_FMACRO_H
 
+#ifndef _BSD_SOURCE
 #define _BSD_SOURCE
+#endif
 
 #if defined(__linux__)
 #ifndef _GNU_SOURCE
@@ -57,7 +59,9 @@
 #define _POSIX_C_SOURCE 199506L
 #endif
 
+#ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE
+#endif
 #define _FILE_OFFSET_BITS 64
 
 //@Kurt hacked

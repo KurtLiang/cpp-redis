@@ -2,16 +2,87 @@ module Comm
 {
     interface Rot
     {
-        int setItem(string sApp, string sK, string sV);
+        int getAppName(int appId, out string appName);
 
-        int getItem(string sApp, string sK, out string sV);
+        /*******************************************************/
+        /*                 String                              */
+        /*******************************************************/
 
-        int delItem(string sApp, string sK);
+        /**
+         * @brief  setCommand
+         */
+        int set(int appId, string sK, string sV);
 
-        int setItemBatch(string sApp, map<string, string> mKVs);
+        /**
+         * @brief  msetCommand
+         */
+        int mset(int appId, map<string, string> mKVs);
 
-        int getItemBatch(string sApp, vector<string> vKs, out map<string, string> mKVs);
+        /**
+         * @brief  getCommand
+         */
+        int get(int appId, string sK, out string sV);
 
-        int delItemBatch(string sApp, vector<string> vKs, out map<string, int> mKVs);
+        /**
+         * @brief  mgetCommand
+         */
+        int mget(int appId, vector<string> vKs, out map<string, string> mKVs);
+
+        /**
+         * @breif  incrbyCommand
+         */
+        int incrby(int appId, string sK, long incr);
+
+        /**
+         * @brief appendCommand
+         */
+        int append(int appId, string sK, string sV);
+
+        //TODO
+        //INCRBYFLOAT
+
+        /*******************************************************/
+        /*                 List                                */
+        /*******************************************************/
+        //TODO
+
+        /*******************************************************/
+        /*                 Hash                                */
+        /*******************************************************/
+        //TODO
+
+        /*******************************************************/
+        /*                 Set                                 */
+        /*******************************************************/
+        //TODO
+
+        /*******************************************************/
+        /*                 Zset                                */
+        /*******************************************************/
+        //TODO
+
+        /*******************************************************/
+        /*                 General                             */
+        /*******************************************************/
+
+        /**
+         * @brief delCommand
+         *        ignore it if key doesn't exist
+         * @number  number of keys deleted
+         */
+        int del(int appId, vector<string> vKs, out int number);
+
+        /**
+         * @brief existsCommand
+         * @number  out   number of keys exists
+         */
+        int exists(int appId, vector<string> vKs, out int number);
+
+        //TODO
+        //RENAME      override existing key
+        //RENAMENX    rename if not exist
+        //MOVE        move key from one db to another
+        //TTL         time to live in seconds
+
     };
 };
