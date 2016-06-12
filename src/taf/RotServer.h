@@ -13,6 +13,21 @@
 #define PROC_BREAK break;
 #endif
 
+#ifndef __TRY__
+#define __TRY__ try\
+    {
+
+#define __CATCH__ }\
+    catch (std::exception const& e)\
+    {\
+        LOG->error() <<__FILE__<<"::"<< __FUNCTION__ << string(" catch std exception: ") + e.what() << endl;\
+    }\
+    catch (...)\
+    {\
+        LOG->error() <<__FILE__<<"::"<< __FUNCTION__<< " catch unknown exception" << endl;\
+    }
+#endif
+
 
 struct redisDb;
 

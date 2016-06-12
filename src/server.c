@@ -3455,7 +3455,11 @@ void evictionPoolPopulate(dict *sampledict, dict *keydict, struct evictionPoolEn
 
 int freeMemoryIfNeeded(void) {
     size_t mem_used, mem_tofree, mem_freed;
+#ifdef REDIS_ON_TAF
+    int slaves = 0;
+#else
     int slaves = listLength(server.slaves);
+#endif
     mstime_t latency, eviction_latency;
 
     /* Remove the size of slaves output buffers and AOF buffer from the

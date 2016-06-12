@@ -5,7 +5,7 @@ module Comm
         0 optional byte set_if_not_exist;
         1 optional byte set_if_exist;
         2 optional byte set_expire;
-        3 optional long expire_time;
+        3 optional long expire_time;  /* in seconds */
     };
 
     interface Rot
@@ -19,7 +19,7 @@ module Comm
         /**
          * @brief  setCommand
          */
-        int set(int appId, string sK, string sV, KeySetOption option);
+        int set(int appId, string sK, string sV);
 
         /**
          * @brief  msetCommand
@@ -39,7 +39,7 @@ module Comm
         /**
          * @breif  incrbyCommand
          */
-        int incrby(int appId, string sK, long incr);
+        int incrby(int appId, string sK, long incr,  out long result);
 
         /**
          * @brief appendCommand
