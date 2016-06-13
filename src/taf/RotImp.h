@@ -9,7 +9,9 @@ class RotImp: public Comm::Rot
 {
 public:
     virtual ~RotImp() {}
+
     virtual void initialize();
+
     virtual void destroy();
 
     virtual taf::Int32 getAppName(taf::Int32 appId,std::string &appName,taf::JceCurrentPtr current);
@@ -26,9 +28,39 @@ public:
 
     virtual taf::Int32 append(taf::Int32 appId,const std::string & sK,const std::string & sV,taf::JceCurrentPtr current);
 
+    virtual taf::Int32 push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListAttr & attr,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 pop(taf::Int32 appId,const std::string & sK,Comm::EListDirection dir,std::string &sItem,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 lrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 end,vector<std::string> &vItems,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 hmset(taf::Int32 appId,const std::string & sK,const map<std::string, std::string> & mFV,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 hmget(taf::Int32 appId,const std::string & sK,const vector<std::string> & vFields,map<std::string, std::string> &mFV,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 hexists(taf::Int32 appId,const std::string & sK,const std::string & sField,taf::Int32 &exist_res,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 hdel(taf::Int32 appId,const std::string & sK,const vector<std::string> & vFields,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 sadd(taf::Int32 appId,const std::string & sK,const vector<std::string> & sMember,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 srem(taf::Int32 appId,const std::string & sK,const vector<std::string> & sMember,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 smembers(taf::Int32 appId,const std::string & sK,vector<std::string> &vMembers,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 sinter(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 sdiff(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 sunion(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current);
+
     virtual taf::Int32 del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &number,taf::JceCurrentPtr current);
 
     virtual taf::Int32 exists(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &number,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 expire(taf::Int32 appId,const std::string & sK,taf::Int64 seconds,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 ttl(taf::Int32 appId,const std::string & sK,taf::Int64 &seconds,taf::JceCurrentPtr current);
 
 protected:
     virtual int onDispatch(taf::JceCurrentPtr _current, vector<char> &_sResponseBuffer);

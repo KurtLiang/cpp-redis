@@ -1639,6 +1639,8 @@ void latencyCommand(client *c);
 void initServerConfig(int redis_on_taf);
 void initServer(int redis_on_taf);
 void linuxMemoryWarnings(void);
+int hashTypeGetFromZiplist(robj *o, robj *field, unsigned char **vstr, unsigned int *vlen, long long *vll);
+int hashTypeGetFromHashTable(robj *o, robj *field, robj **value);
 #endif
 
 #if defined(__GNUC__)

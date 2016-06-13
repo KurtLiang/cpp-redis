@@ -1,11 +1,22 @@
 module Comm
 {
-    struct KeySetOption
+    struct StringAttr
     {
         0 optional byte set_if_not_exist;
         1 optional byte set_if_exist;
         2 optional byte set_expire;
         3 optional long expire_time;  /* in seconds */
+    };
+
+    struct ListAttr
+    {
+        0 optional byte set_if_exist;
+    };
+
+    enum EListDirection
+    {
+        ELIST_HEAD = 0,
+        ELIST_TAIL = 1
     };
 
     interface Rot
@@ -17,7 +28,7 @@ module Comm
         /*******************************************************/
 
         /**
-         * @brief  setCommand
+         * @brief  set k v
          */
         int set(int appId, string sK, string sV);
 
@@ -46,23 +57,87 @@ module Comm
          */
         int append(int appId, string sK, string sV);
 
-        //TODO
-        //INCRBYFLOAT
-
         /*******************************************************/
         /*                 List                                */
         /*******************************************************/
-        //TODO
+
+        /**
+         * @brief lpush/rpush/lpushx/rpushx
+         */
+        int push(int appId, string sK, vector<string> vItems,  EListDirection dir, ListAttr attr);
+
+        /**
+         * @brief lpop/rpop
+         */
+        int pop(int appId, string sK, EListDirection dir, out string  sItem);
+
+
+        /**
+         * @brief lrange key start stop #[stop] is included
+         */
+        int lrange(int appId, string sK, int start, int end, out vector<string>  vItems);
+
 
         /*******************************************************/
         /*                 Hash                                */
         /*******************************************************/
-        //TODO
+
+        /**
+         * @brief HMSET key field value [field value...]
+         */
+        int hmset(int appId, string sK, map<string, string> mFV);
+
+        /**
+         * @brief HMGET key field [field...]
+         */
+        int hmget(int appId, string sK, vector<string>  vFields, out map<string, string> mFV);
+
+
+        /**
+         * @brief HEXISTS key field
+         */
+        int hexists(int appId, string sK, string sField, out int exist_res);
+
+        /**
+         * @brief HDEL key field [field...]
+         */
+        int hdel(int appId, string sK, vector<string> vFields);
 
         /*******************************************************/
         /*                 Set                                 */
         /*******************************************************/
-        //TODO
+
+        /**
+         * @brief SADD key member [member...]
+         */
+        int sadd(int appId, string sK, vector<string> sMember);
+
+        /**
+         * @brief SREM key memgber [member...]
+         */
+        int srem(int appId, string sK, vector<string> sMember);
+
+        /**
+         * @brief SMEMBERS key
+         */
+        int smembers(int appId, string sK, out vector<string> vMembers);
+
+        /**
+         * @brief SINTER key [key...]
+         */
+        int sinter(int appId, vector<string> vK, out vector<string> vResults);
+
+        /**
+         * @brief SDIFF key [key...]
+         *        difference result of first set between other  sets.
+         */
+        int sdiff(int appId, vector<string> vK, out vector<string> vResults);
+
+        /**
+         * @brief SUNION key [key...]
+         */
+        int sunion(int appId, vector<string> vK, out vector<string> vResults);
+
 
         /*******************************************************/
         /*                 Zset                                */
@@ -78,19 +153,26 @@ module Comm
          *        ignore it if key doesn't exist
          * @number  number of keys deleted
          */
-        int del(int appId, vector<string> vKs, out int number);
+        int del(int appId, vector<string> vKs, out int deleted);
 
         /**
          * @brief existsCommand
          * @number  out   number of keys exists
          */
-        int exists(int appId, vector<string> vKs, out int number);
+        int exists(int appId, vector<string> vKs, out int existed);
 
-        //TODO
-        //RENAME      override existing key
-        //RENAMENX    rename if not exist
-        //MOVE        move key from one db to another
-        //TTL         time to live in seconds
+        /**
+         * @brief EXPIRE key seconds
+         * @param seconds   make it persistent if -1
+         */
+        int expire(int appId, string sK, long seconds);
 
+        /**
+         * @brief TTL key
+         * @param seconds >=0 remaining seconds to expire
+         *                -1 if persistent
+         *                -2 if not existed or expired
+         */
+        int ttl(int appId, string sK, out long seconds);
     };
 };

@@ -71,6 +71,8 @@ void RotServer::initialize()
 {
     //initialize application here
 
+    addServant<RotImp>(ServerConfig::Application + "." + ServerConfig::ServerName + ".RotObj");
+
     string sConf = ServerConfig::ServerName + ".conf";
     addConfig(sConf);
 
