@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+typedef void (*logSinkerFn)(int, const char *);
+
 
 #ifdef __cplusplus
 }

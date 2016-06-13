@@ -17,6 +17,18 @@ void  rot_oom_handler(size_t allocation_size)
     serverPanic("Redis aborting for OUT OF MEMORY");
 }
 
+void rot_log_sinker(int level, const char *msg)
+{
+    if (level >= LL_WARNING)
+    {
+        LOG->error() << msg  << endl;
+    }
+    else
+    {
+        LOG->debug() << msg  << endl;
+    }
+}
+
 /**
  * @return 0 on success otherwise -1.
  */
@@ -54,6 +66,7 @@ int RotServer::initRedis(TC_Config &tConf)
     server.maxmemory         = maxmemory_bytes;
     server.maxmemory_policy  = MAXMEMORY_ALLKEYS_LRU;
     server.maxmemory_samples = 5;
+    server.logSinker         = rot_log_sinker;
 
     initServer(1);
     LOG->debug() << "Redis server started, Redis version " << REDIS_VERSION << endl;

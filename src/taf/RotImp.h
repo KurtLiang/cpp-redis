@@ -42,9 +42,9 @@ public:
 
     virtual taf::Int32 hdel(taf::Int32 appId,const std::string & sK,const vector<std::string> & vFields,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 sadd(taf::Int32 appId,const std::string & sK,const vector<std::string> & sMember,taf::JceCurrentPtr current);
+    virtual taf::Int32 sadd(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 srem(taf::Int32 appId,const std::string & sK,const vector<std::string> & sMember,taf::JceCurrentPtr current);
+    virtual taf::Int32 srem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
 
     virtual taf::Int32 smembers(taf::Int32 appId,const std::string & sK,vector<std::string> &vMembers,taf::JceCurrentPtr current);
 

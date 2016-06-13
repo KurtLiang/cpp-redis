@@ -140,6 +140,7 @@ REDIS_STATIC_LIB := libredis.a
 .PHONY : redis-on-taf
 redis-on-taf : CFLAGS += -DREDIS_ON_TAF
 redis-on-taf : REDIS_STATIC_LIB
+	-(cd taf && $(MAKE))
 REDIS_STATIC_LIB: $(REDIS_SERVER_OBJ)
 	$(AR) $(ARFLAGS) $(REDIS_STATIC_LIB) $^
 
@@ -224,6 +225,7 @@ clean:
 distclean: clean
 	-(cd ../deps && $(MAKE) distclean)
 	-(rm -f .make-*)
+	-(cd taf && $(MAKE) cleanall)
 
 .PHONY: distclean
 

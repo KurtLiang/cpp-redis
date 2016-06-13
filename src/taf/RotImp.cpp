@@ -714,7 +714,6 @@ taf::Int32 RotImp::hmget(taf::Int32 appId,const std::string & sK,const vector<st
         PROC_BREAK
     }
 
-
     iret = 0;
     PROC_END
 
@@ -741,7 +740,7 @@ taf::Int32 RotImp::hexists(taf::Int32 appId,const std::string & sK,const std::st
         PROC_BREAK
     }
 
-    verifyRobjType(hobj, OBJ_HASH);
+    verifyRobjType(hobj, OBJ_HASH, iret);
 
     auto fldobj = allocateFieldObj();
     if (fillFieldObj(fldobj, sField))
@@ -777,7 +776,7 @@ taf::Int32 RotImp::hdel(taf::Int32 appId,const std::string & sK,const vector<std
         PROC_BREAK
     }
 
-    verifyRobjType(hobj, OBJ_HASH);
+    verifyRobjType(hobj, OBJ_HASH, iret);
 
     int deleted = 0;
     int keyremoved = 0;
@@ -807,26 +806,117 @@ taf::Int32 RotImp::hdel(taf::Int32 appId,const std::string & sK,const vector<std
 
     iret = 0;
     PROC_END
+
     releaseFieldObj(fldobj);
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
 }
 
-taf::Int32 RotImp::sadd(taf::Int32 appId,const std::string & sK,const vector<std::string> & sMember,taf::JceCurrentPtr current)
+taf::Int32 RotImp::sadd(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current)
 {
-    //TODO implement me
-    //
+    int iret = -1;
 
-    return 0;
+    PROC_BEGIN
+
+    if (vMembers.empty())
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sK, iret);
+
+    robj *setobj = lookupKeyWrite(db, key);
+    if (setobj == NULL)
+    {
+        /* encode as an intset if the first item is an integer */
+        long long ll;
+        const string &s = vMembers[0];
+
+        if (string2ll(s.data(), s.length(), &ll))
+            setobj = createIntsetObject();
+        else
+            setobj = createSetObject();
+
+        dbAdd(db, key, setobj);
+    }
+    else
+    {
+        verifyRobjType(setobj, OBJ_SET, iret);
+    }
+
+    int added = 0;
+    for (auto &s : vMembers)
+    {
+        robj *val = tryObjectEncoding(createEmbeddedStringObject(s.data(), s.length()));
+        if (setTypeAdd(setobj, val)) ++added;
+        decrRefCount(val);
+    }
+
+    server.dirty += added;
+    iret = 0;
+
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
 }
 
-taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std::string> & sMember,taf::JceCurrentPtr current)
+taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current)
 {
-    //TODO implement me
-    //
+    int iret = -1;
 
-    return 0;
+    PROC_BEGIN
+
+    if (vMembers.empty())
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sK, iret);
+
+    robj *setobj = lookupKeyWrite(db, key);
+    if (setobj == NULL)
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    verifyRobjType(setobj, OBJ_SET, iret);
+
+    int deleted = 0;
+    int keyremoved = 0;
+    for (auto &s : vMembers)
+    {
+
+        robj *val = tryObjectEncoding(createEmbeddedStringObject(s.data(), s.length()));
+        if (setTypeRemove(setobj, val)) ++deleted;
+        decrRefCount(val);
+
+        if (setTypeSize(setobj) == 0)
+        {
+            dbDelete(db, key);
+            keyremoved = 1;
+            break;
+        }
+    }
+
+    server.dirty += deleted;
+    if (keyremoved)
+    {
+        LOG->debug() << __FUNCTION__ << "| set object removed since all members deleted :" << sK << endl;
+    }
+
+    iret = 0;
+
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
 }
 
 taf::Int32 RotImp::smembers(taf::Int32 appId,const std::string & sK,vector<std::string> &vMembers,taf::JceCurrentPtr current)

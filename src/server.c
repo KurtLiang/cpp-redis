@@ -303,6 +303,13 @@ struct evictionPoolEntry *evictionPoolAlloc(void);
 /* Low level logging. To use only for very big messages, otherwise
  * serverLog() is to prefer. */
 void serverLogRaw(int level, const char *msg) {
+#ifdef REDIS_ON_TAF
+    if (server.logSinker)
+    {
+        server.logSinker(level, msg);
+        return ;
+    }
+#endif
     const int syslogLevelMap[] = { LOG_DEBUG, LOG_INFO, LOG_NOTICE, LOG_WARNING };
     const char *c = ".-*#";
     FILE *fp;
