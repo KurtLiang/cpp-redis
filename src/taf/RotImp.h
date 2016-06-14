@@ -28,7 +28,7 @@ public:
 
     virtual taf::Int32 append(taf::Int32 appId,const std::string & sK,const std::string & sV,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt,taf::JceCurrentPtr current);
+    virtual taf::Int32 push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt, int &length, taf::JceCurrentPtr current);
 
     virtual taf::Int32 pop(taf::Int32 appId,const std::string & sK,Comm::EListDirection dir,std::string &sItem,taf::JceCurrentPtr current);
 

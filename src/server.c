@@ -304,7 +304,7 @@ struct evictionPoolEntry *evictionPoolAlloc(void);
  * serverLog() is to prefer. */
 void serverLogRaw(int level, const char *msg) {
 #ifdef REDIS_ON_TAF
-    if (server.logSinker && server.logSinker(level, msg) == TAF_HOOK_DONE)
+    if (server.logSinker && server.logSinker(level&0xff, msg) == TAF_HOOK_DONE)
         return ;
 #endif
     const int syslogLevelMap[] = { LOG_DEBUG, LOG_INFO, LOG_NOTICE, LOG_WARNING };
@@ -1851,17 +1851,10 @@ void initServer(int redis_on_taf) {
 
     server.pid = getpid();
     server.current_client = NULL;
-    if (!redis_on_taf)
-    {
-        server.slaves   = listCreate();
-        server.monitors = listCreate();
-    }
-    else
-    {
-        server.slaves   = NULL;
-        server.monitors = NULL;
-    }
-    //TODO @Kurt do we need these list?
+    //@Kurt  I realy want to give up creating these lists.
+    // however too many places employ these lists.
+    server.slaves                = listCreate();
+    server.monitors              = listCreate();
     server.clients               = listCreate();
     server.clients_to_close      = listCreate();
     server.clients_pending_write = listCreate();
@@ -1876,7 +1869,14 @@ void initServer(int redis_on_taf) {
 
     createSharedObjects();
     adjustOpenFilesLimit();
-    server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR);
+    if (redis_on_taf)
+    {
+        server.el = NULL;
+    }
+    else
+    {
+        server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR);
+    }
     server.db = (redisDb*)zmalloc(sizeof(redisDb)*server.dbnum);
 
     /* Open the TCP listening socket for the user commands. */
@@ -1896,14 +1896,13 @@ void initServer(int redis_on_taf) {
         anetNonBlock(NULL,server.sofd);
     }
 
-    if (!redis_on_taf)
-    {
-        /* Abort if there are no listening sockets at all. */
-        if (server.ipfd_count == 0 && server.sofd < 0) {
-            serverLog(LL_WARNING, "Configured to not listen anywhere, exiting.");
-            exit(1);
-        }
+#ifndef REDIS_ON_TAF
+    /* Abort if there are no listening sockets at all. */
+    if (server.ipfd_count == 0 && server.sofd < 0) {
+        serverLog(LL_WARNING, "Configured to not listen anywhere, exiting.");
+        exit(1);
     }
+#endif
 
     /* Create the Redis databases, and initialize other internal state. */
     for (j = 0; j < server.dbnum; j++) {
@@ -1952,6 +1951,7 @@ void initServer(int redis_on_taf) {
     server.repl_good_slaves_count = 0;
     updateCachedTime();
 
+#ifndef REDIS_ON_TAF
     /* Create the serverCron() time event, that's our main way to process
      * background operations. */
     if(aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
@@ -1971,6 +1971,7 @@ void initServer(int redis_on_taf) {
     }
     if (server.sofd > 0 && aeCreateFileEvent(server.el,server.sofd,AE_READABLE,
         acceptUnixHandler,NULL) == AE_ERR) serverPanic("Unrecoverable error creating server.sofd file event.");
+#endif
 
     /* Open the AOF file if needed. */
     if (server.aof_state == AOF_ON) {

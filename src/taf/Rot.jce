@@ -83,18 +83,18 @@ module Comm
         /**
          * @brief lpush/rpush/lpushx/rpushx
          */
-        int push(int appId, string sK, vector<string> vItems,  EListDirection dir, ListRobjOption opt);
+        int push(int appId, string sK, vector<string> vItems,  EListDirection dir, ListRobjOption opt, out int length);
 
         /**
          * @brief lpop/rpop
          */
-        int pop(int appId, string sK, EListDirection dir, out string  sItem);
+        int pop(int appId, string sK, EListDirection dir, out string sItem);
 
 
         /**
          * @brief lrange key start stop #[stop] is included
          */
-        int lrange(int appId, string sK, int start, int end, out vector<string>  vItems);
+        int lrange(int appId, string sK, int start, int end, out vector<string> vItems);
 
 
         /*******************************************************/

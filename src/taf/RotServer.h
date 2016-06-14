@@ -51,7 +51,8 @@ public:
     redisDb* lookforDb(taf::Int32 appId);
 
 private:
-    int initRedis(TC_Config &tConf);
+    int  initRedis(TC_Config &tConf);
+    void exitRedis();
 
 private:
     std::map<int, std::string> appid2name_;

@@ -91,10 +91,6 @@ void RotImp::destroy()
 
 int RotImp::onDispatch(taf::JceCurrentPtr _current, vector<char> &_sResponseBuffer)
 {
-    //for  test TODO
-    LOG->debug()<< __FUNCTION__ << endl;
-
-
     freeMemoryIfNeeded();
     return Rot::onDispatch(_current, _sResponseBuffer);
 }
@@ -195,7 +191,7 @@ taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string
 }
 
 
-taf::Int32 RotImp::mset(taf::Int32 appId,const map<std::string, std::string> & mKVs, const Comm::StringRobjOption &opt,  taf::JceCurrentPtr current)
+taf::Int32 RotImp::mset(taf::Int32 appId,const map<std::string, std::string> & mKVs, const Comm::StringRobjOption &opt, taf::JceCurrentPtr current)
 {
     //TODO opt
 
@@ -438,8 +434,9 @@ taf::Int32 RotImp::append(taf::Int32 appId,const std::string & sK,const std::str
 }
 
 
-taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt,taf::JceCurrentPtr current)
+taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt, int &length, taf::JceCurrentPtr current)
 {
+    length = 0;
     int iret = -1;
 
     PROC_BEGIN
@@ -449,6 +446,15 @@ taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std
     updateSharedKeyObj(key, sk, iret);
 
     robj *lobj = lookupKeyWrite(db, key);
+
+    if (vItems.empty() || std::count_if(vItems.begin(), vItems.end(), [](const string &s){ return s.empty();}) == (int)vItems.size())
+    {
+        if (lobj && lobj->type == OBJ_LIST) length = listTypeLength(lobj);
+
+        iret = 0;
+        PROC_BREAK
+    }
+
     if (lobj == NULL)
     {
         if (opt.set_if_exist) //bye bye
@@ -478,6 +484,9 @@ taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std
     }
 
     server.dirty += pushed;
+
+    length = listTypeLength(lobj);
+
     iret = 0;
 
     __CATCH__
@@ -571,6 +580,7 @@ taf::Int32 RotImp::lrange(taf::Int32 appId,const std::string & sK,taf::Int32 ist
         PROC_BREAK
     }
 
+    if (end >= llen) end = llen-1;
     long rangelen = (end-start)+1;
 
     listTypeIterator *iter = listTypeInitIterator(lobj, start, LIST_TAIL);
@@ -1170,7 +1180,7 @@ taf::Int32 RotImp::ttl(taf::Int32 appId, const std::string & sK, /*out */taf::In
     if (lookupKeyRead(db, key) == NULL) //bye bye
     {
         iret = 0;
-
+        PROC_BREAK
     }
 
     auto expire = getExpire(db, key);

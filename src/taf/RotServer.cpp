@@ -8,20 +8,21 @@
 #include <algorithm>
 #include "server.h" //redis server
 
+#define APP_ID_MAX 128
+
 RotServer g_app;
 
 void  rot_oom_handler(size_t allocation_size)
 {
-    serverLog(LL_WARNING,"Out Of Memory allocating %zu bytes!",
-        allocation_size);
+    serverLog(LL_WARNING,"Out Of Memory allocating %zu bytes!", allocation_size);
     serverPanic("Redis aborting for OUT OF MEMORY");
 }
 
 int rot_log_sinker(int level, const char *msg)
 {
-    if (level >= LL_WARNING)
+    if (level == LL_WARNING)
     {
-        LOG->error() << msg  << endl;
+        LOG->warn() << msg  << endl;
     }
     else
     {
@@ -40,8 +41,12 @@ int RotServer::initRedis(TC_Config &tConf)
     auto max_it = std::max_element(appid2name_.begin(), appid2name_.end(),
             [] (const Iter &it1, const Iter &it2) -> bool { return it1.first < it2.first; });
 
-    int dbnum = (max_it == appid2name_.end()?5: max_it->first);
+    int dbnum = (max_it == appid2name_.end()?2: (max_it->first+1));
     long long maxmemory_bytes = TC_Common::toSize(tConf.get("/main/<maxmemory>"), 1024*1024*500);
+
+    LOG->debug() << __FUNCTION__ << "|database number:" << dbnum << ", max-memory:"
+        << maxmemory_bytes << " bytes" << endl;
+
 
     memset(&server, 0, sizeof(server)); //:D
 
@@ -78,7 +83,7 @@ int RotServer::initRedis(TC_Config &tConf)
     return 0;
 }
 
-void exitRedis()
+void RotServer::exitRedis()
 {
     if (server.el) aeDeleteEventLoop(server.el);
 }
@@ -95,18 +100,32 @@ void RotServer::initialize()
     TC_Config tConf;
     tConf.parseFile(ServerConfig::BasePath + sConf);
 
-    //TODO initialize appid2name_
+    auto appmapcfg = tConf.getDomainMap("/main/app"); /* app-name=app-id */
+    for (const auto &item : appmapcfg)
+    {
+        int id = std::stoi(item.second);
+        if (appid2name_.count(id) > 0)
+        {
+            LOG->error() << "Wrong config: Same app ID found for " <<  item.first << endl;
+            exit(0);
+        }
+
+        appid2name_[id] = item.first;
+    }
 
     int iret = initRedis(tConf);
     if (iret)
     {
         LOG->error() << "failed to init redis instance" << endl;
     }
+
+    FDLOG() << "Rot server restarted" << endl;
 }
 
 void RotServer::destroyApp()
 {
-    //TODO
+    //destroy application here: 
+    //
 
     exitRedis();
 }
