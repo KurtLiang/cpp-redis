@@ -71,7 +71,7 @@ typedef long long mstime_t; /* millisecond time type. */
 #include "crc64.h"
 
 #ifdef REDIS_ON_TAF
-#include "taf/RedisOnTaf.h"
+#include "taf/RotHook.h"
 #endif
 
 /* Error codes */
@@ -717,7 +717,7 @@ struct redisServer {
     char *requirepass;          /* Pass for AUTH command, or NULL */
     char *pidfile;              /* PID file path */
 #ifdef REDIS_ON_TAF
-    logSinkerFn logSinker;      /* :D */
+    logSinkerHook logSinker;      /* :D */
 #endif
     int arch_bits;              /* 32 or 64 depending on sizeof(long) */
     int cronloops;              /* Number of times the cron function run */

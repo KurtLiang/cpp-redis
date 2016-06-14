@@ -2,7 +2,7 @@
  * Redis on Taf, aka 'Rot'
  */
 #include "RotServer.h"
-#include "RedisOnTaf.h"
+#include "RotHook.h"
 #include "RotImp.h"
 #include <iostream>
 #include <algorithm>
@@ -17,7 +17,7 @@ void  rot_oom_handler(size_t allocation_size)
     serverPanic("Redis aborting for OUT OF MEMORY");
 }
 
-void rot_log_sinker(int level, const char *msg)
+int rot_log_sinker(int level, const char *msg)
 {
     if (level >= LL_WARNING)
     {
@@ -27,6 +27,8 @@ void rot_log_sinker(int level, const char *msg)
     {
         LOG->debug() << msg  << endl;
     }
+
+    return TAF_HOOK_DONE;
 }
 
 /**
@@ -66,6 +68,7 @@ int RotServer::initRedis(TC_Config &tConf)
     server.maxmemory         = maxmemory_bytes;
     server.maxmemory_policy  = MAXMEMORY_ALLKEYS_LRU;
     server.maxmemory_samples = 5;
+    /* set hook function */
     server.logSinker         = rot_log_sinker;
 
     initServer(1);
