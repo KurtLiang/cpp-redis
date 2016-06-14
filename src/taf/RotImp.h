@@ -16,9 +16,9 @@ public:
 
     virtual taf::Int32 getAppName(taf::Int32 appId,std::string &appName,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 set(taf::Int32 appId,const std::string & sK,const std::string & sV, taf::JceCurrentPtr current);
+    virtual taf::Int32 set(taf::Int32 appId,const std::string & sK,const std::string & sV, const Comm::StringRobjOption &opt, taf::JceCurrentPtr current);
 
-    virtual taf::Int32 mset(taf::Int32 appId,const map<std::string, std::string> & mKVs,taf::JceCurrentPtr current);
+    virtual taf::Int32 mset(taf::Int32 appId,const map<std::string, std::string> & mKVs, const Comm::StringRobjOption &opt, taf::JceCurrentPtr current);
 
     virtual taf::Int32 get(taf::Int32 appId,const std::string & sK,std::string &sV,taf::JceCurrentPtr current);
 
@@ -28,7 +28,7 @@ public:
 
     virtual taf::Int32 append(taf::Int32 appId,const std::string & sK,const std::string & sV,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListAttr & attr,taf::JceCurrentPtr current);
+    virtual taf::Int32 push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt,taf::JceCurrentPtr current);
 
     virtual taf::Int32 pop(taf::Int32 appId,const std::string & sK,Comm::EListDirection dir,std::string &sItem,taf::JceCurrentPtr current);
 
@@ -53,6 +53,16 @@ public:
     virtual taf::Int32 sdiff(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current);
 
     virtual taf::Int32 sunion(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 zadd(taf::Int32 appId,const std::string & sK,const vector<Comm::ZsetScoreMember> & vScoreMember,const Comm::ZsetRobjOption & option,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 zrem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 zrank(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 rev,taf::Int32 &rank,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 zincrby(taf::Int32 appId,const std::string & sK,taf::Double increment,const std::string & sMember,taf::Double &new_score,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 zrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 stop,const Comm::ZsetRangeOption & opt,vector<Comm::ZsetScoreMember> &vScoreMembers,taf::JceCurrentPtr current);
 
     virtual taf::Int32 del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &number,taf::JceCurrentPtr current);
 

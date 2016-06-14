@@ -1,6 +1,6 @@
 module Comm
 {
-    struct StringAttr
+    struct StringRobjOption
     {
         0 optional byte set_if_not_exist;
         1 optional byte set_if_exist;
@@ -8,9 +8,27 @@ module Comm
         3 optional long expire_time;  /* in seconds */
     };
 
-    struct ListAttr
+    struct ListRobjOption
     {
         0 optional byte set_if_exist;
+    };
+
+    struct ZsetRobjOption
+    {
+        0 optional byte set_if_not_exist;  /* NX */
+        1 optional byte set_if_exist;      /* XX */
+    };
+
+    struct ZsetScoreMember
+    {
+        0 optional double score;
+        1 optional string member;
+    };
+
+    struct ZsetRangeOption
+    {
+        0 optional byte is_rev;
+        1 optional byte with_scores;
     };
 
     enum EListDirection
@@ -18,6 +36,7 @@ module Comm
         ELIST_HEAD = 0,
         ELIST_TAIL = 1
     };
+
 
     interface Rot
     {
@@ -28,32 +47,32 @@ module Comm
         /*******************************************************/
 
         /**
-         * @brief  set k v
+         * @brief  SET key value
          */
-        int set(int appId, string sK, string sV);
+        int set(int appId, string sK, string sV, StringRobjOption opt);
 
         /**
-         * @brief  msetCommand
+         * @brief  MSET key value [key value...]
          */
-        int mset(int appId, map<string, string> mKVs);
+        int mset(int appId, map<string, string> mKVs, StringRobjOption opt);
 
         /**
-         * @brief  getCommand
+         * @brief  GET key
          */
         int get(int appId, string sK, out string sV);
 
         /**
-         * @brief  mgetCommand
+         * @brief  MGET key [key...]
          */
         int mget(int appId, vector<string> vKs, out map<string, string> mKVs);
 
         /**
-         * @breif  incrbyCommand
+         * @breif  INCRBY KEY INCR
          */
-        int incrby(int appId, string sK, long incr,  out long result);
+        int incrby(int appId, string sK, long incr, out long result);
 
         /**
-         * @brief appendCommand
+         * @brief APPEND KEY VALUE
          */
         int append(int appId, string sK, string sV);
 
@@ -64,7 +83,7 @@ module Comm
         /**
          * @brief lpush/rpush/lpushx/rpushx
          */
-        int push(int appId, string sK, vector<string> vItems,  EListDirection dir, ListAttr attr);
+        int push(int appId, string sK, vector<string> vItems,  EListDirection dir, ListRobjOption opt);
 
         /**
          * @brief lpop/rpop
@@ -91,7 +110,6 @@ module Comm
          * @brief HMGET key field [field...]
          */
         int hmget(int appId, string sK, vector<string>  vFields, out map<string, string> mFV);
-
 
         /**
          * @brief HEXISTS key field
@@ -142,22 +160,51 @@ module Comm
         /*******************************************************/
         /*                 Zset                                */
         /*******************************************************/
-        //TODO
+
+        /**
+         * @brief ZDD key score member [score member...]
+         */
+        int zadd(int appId, string sK, vector<ZsetScoreMember> vScoreMember, ZsetRobjOption option);
+
+        /**
+         * @brief ZREM key member [member...]
+         */
+        int zrem(int appId, string sK, vector<string> vMembers);
+
+        /**
+         * @brief ZRANK/ZREVRANK key member
+         *
+         * @param rev          0 rank order by asc
+         *                     1 rank order by desc
+         * @param rank         zero-based
+         */
+        int zrank(int appId, string sK, string sMember, int rev, out int rank);
+
+        /**
+         * @brief ZINCRBY key increment member
+         * @param new_score     output new score
+         */
+        int zincrby(int appId, string sK, double increment, string sMember, out double new_score);
+
+        /**
+         * @brief ZRANGE key start stop
+         */
+        int zrange(int appId, string sK, int start, int stop, ZsetRangeOption opt, out vector<ZsetScoreMember> vScoreMembers);
 
         /*******************************************************/
         /*                 General                             */
         /*******************************************************/
 
         /**
-         * @brief delCommand
+         * @brief DEL key [key...]
          *        ignore it if key doesn't exist
          * @number  number of keys deleted
          */
         int del(int appId, vector<string> vKs, out int deleted);
 
         /**
-         * @brief existsCommand
-         * @number  out   number of keys exists
+         * @brief EXISTS key [key...]
+         * @param  number  output number of keys exists
          */
         int exists(int appId, vector<string> vKs, out int existed);
 

@@ -166,8 +166,10 @@ taf::Int32 RotImp::getAppName(taf::Int32 appId,std::string &appName,taf::JceCurr
 /*
  * refer to setGenericCommand
  */
-taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string & sV,taf::JceCurrentPtr current)
+taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string & sV, const Comm::StringRobjOption &opt, taf::JceCurrentPtr current)
 {
+    //TODO opt
+
     int iret = -1;
 
     PROC_BEGIN
@@ -193,8 +195,10 @@ taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string
 }
 
 
-taf::Int32 RotImp::mset(taf::Int32 appId,const map<std::string, std::string> & mKVs,taf::JceCurrentPtr current)
+taf::Int32 RotImp::mset(taf::Int32 appId,const map<std::string, std::string> & mKVs, const Comm::StringRobjOption &opt,  taf::JceCurrentPtr current)
 {
+    //TODO opt
+
     int iret = -1;
 
     PROC_BEGIN
@@ -434,7 +438,7 @@ taf::Int32 RotImp::append(taf::Int32 appId,const std::string & sK,const std::str
 }
 
 
-taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListAttr & attr,taf::JceCurrentPtr current)
+taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt,taf::JceCurrentPtr current)
 {
     int iret = -1;
 
@@ -447,7 +451,7 @@ taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std
     robj *lobj = lookupKeyWrite(db, key);
     if (lobj == NULL)
     {
-        if (attr.set_if_exist) //bye bye
+        if (opt.set_if_exist) //bye bye
         {
             iret = 0;
             PROC_BREAK
@@ -921,35 +925,140 @@ taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std
 
 taf::Int32 RotImp::smembers(taf::Int32 appId,const std::string & sK,vector<std::string> &vMembers,taf::JceCurrentPtr current)
 {
+    int iret = -1;
+    PROC_BEGIN
+
     //TODO implement me
     //
 
-    return 0;
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
 }
 
 taf::Int32 RotImp::sinter(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current)
 {
+    int iret = -1;
+    PROC_BEGIN
+
     //TODO implement me
     //
 
-    return 0;
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
 }
 
 taf::Int32 RotImp::sdiff(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current)
 {
+    int iret = -1;
+    PROC_BEGIN
+
     //TODO implement me
     //
 
-    return 0;
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
 }
 
 taf::Int32 RotImp::sunion(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current)
 {
+    int iret = -1;
+    PROC_BEGIN
+
     //TODO implement me
     //
 
-    return 0;
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
 }
+
+
+taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Comm::ZsetScoreMember> & vScoreMember,const Comm::ZsetRobjOption & option,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
+taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
+taf::Int32 RotImp::zrank(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 rev,taf::Int32 &rank,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
+taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double increment,const std::string & sMember,taf::Double &new_score,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
+taf::Int32 RotImp::zrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 stop,const Comm::ZsetRangeOption & opt,vector<Comm::ZsetScoreMember> &vScoreMembers,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
 
 taf::Int32 RotImp::del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &deleted, taf::JceCurrentPtr current)
 {
@@ -979,7 +1088,7 @@ taf::Int32 RotImp::del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int
     PROC_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
-    return 0;
+    return iret;
 }
 
 taf::Int32 RotImp::exists(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &existed,taf::JceCurrentPtr current)
