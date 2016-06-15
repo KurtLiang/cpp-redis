@@ -74,11 +74,11 @@ public:
 
     virtual taf::Int32 zrem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 zrank(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 rev,taf::Int32 &rank,taf::JceCurrentPtr current);
+    virtual taf::Int32 zrank(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 reverse,taf::Int32 &rank,taf::JceCurrentPtr current);
 
     virtual taf::Int32 zincrby(taf::Int32 appId,const std::string & sK,taf::Double increment,const std::string & sMember,taf::Double &new_score,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 zrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 stop,const Comm::ZsetRangeOption & opt,vector<Comm::ZsetScoreMember> &vScoreMembers,taf::JceCurrentPtr current);
+    virtual taf::Int32 zrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 end,const Comm::ZsetRangeOption & opt,vector<Comm::ZsetScoreMember> &vScoreMembers,taf::JceCurrentPtr current);
 
     virtual taf::Int32 del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &number,taf::JceCurrentPtr current);
 

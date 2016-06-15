@@ -27,7 +27,7 @@ module Comm
 
     struct ZsetRangeOption
     {
-        0 optional byte is_rev;
+        0 optional byte reverse;
         1 optional byte with_scores;
     };
 
@@ -239,9 +239,9 @@ module Comm
         int zincrby(int appId, string sK, double increment, string sMember, out double new_score);
 
         /**
-         * @brief ZRANGE key start stop
+         * @brief ZRANGE key start end
          */
-        int zrange(int appId, string sK, int start, int stop, ZsetRangeOption opt, out vector<ZsetScoreMember> vScoreMembers);
+        int zrange(int appId, string sK, int start, int end, ZsetRangeOption opt, out vector<ZsetScoreMember> vScoreMembers);
 
         /*******************************************************/
         /*                 General                             */
