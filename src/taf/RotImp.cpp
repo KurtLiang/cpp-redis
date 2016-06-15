@@ -1890,8 +1890,132 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
     int iret = -1;
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    if (vScoreMember.empty())
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sK, iret);
+
+    robj *zobj = lookupKeyWrite(db,key);
+    if (zobj == NULL)
+    {
+        if (option.set_if_exist)
+        {
+            iret = 0;
+            PROC_BREAK
+        }
+
+        auto &sm = vScoreMembers[0];
+        if (server.zset_max_ziplist_entries == 0 ||
+            server.zset_max_ziplist_value < sm.member.size())
+        {
+            zobj = createZsetObject();
+        } else {
+            zobj = createZsetZiplistObject();
+        }
+        dbAdd(c->db,key,zobj);
+    }
+    else
+    {
+        verifyRobjType(zobj, OBJ_ZSET, iret);
+    }
+
+    double curscore = 0.0;
+    int added=0;
+    int updated = 0;
+    int processed = 0;
+    for (auto &sm : vScoreMembers)
+    {
+        if (zobj->encoding == OBJ_ENCODING_ZIPLIST)
+        {
+            unsigned char *eptr;
+
+            /* Prefer non-encoded element when dealing with ziplists. */
+            ele = sm.member;
+            if ((eptr = zzlFind((unsigned char*)zobj->ptr,ele,&curscore)) != NULL)
+            {
+                if (option.set_if_not_exist)
+                    continue;
+
+                /* Remove and re-insert when score changed. */
+                if (fabs(score - curscore)<1e-12)
+                {
+                    zobj->ptr = zzlDelete((unsigned char*)zobj->ptr,eptr);
+                    zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,ele,score);
+                    server.dirty++;
+                    updated++;
+                }
+                processed++;
+            }
+            else if (!option.set_if_exist)
+            {
+                /* Optimize: check if the element is too large or the list
+                 * becomes too long *before* executing zzlInsert. */
+                zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,ele,score);
+
+                if (zzlLength((unsigned char*)zobj->ptr) > server.zset_max_ziplist_entries)
+                    zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
+
+                if (sdslen((sds)ele->ptr) > server.zset_max_ziplist_value)
+                    zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
+
+                server.dirty++;
+                added++;
+                processed++;
+            }
+        }
+        else if (zobj->encoding == OBJ_ENCODING_SKIPLIST)
+        {
+            zset *zs = (zset*)zobj->ptr;
+            zskiplistNode *znode;
+            dictEntry *de;
+
+            ele = sm.member;
+            de = dictFind(zs->dict_,ele);
+            if (de != NULL)
+            {
+                if (option.set_if_not_exist)
+                    continue;
+
+                curobj = (robj*)dictGetKey(de);
+                curscore = *(double*)dictGetVal(de);
+
+                /* Remove and re-insert when score changed. We can safely
+                 * delete the key object from the skiplist, since the
+                 * dictionary still has a reference to it. */
+                if (fabs(score - curscore) < 1e-12)
+                {
+                    int tmpret = zslDelete(zs->zsl,curscore,curobj);
+                    assert (tmpret);
+
+                    znode = zslInsert(zs->zsl,score,curobj);
+                    incrRefCount(curobj); /* Re-inserted in skiplist. */
+                    dictGetVal(de) = &znode->score; /* Update score ptr. */
+                    server.dirty++;
+                    updated++;
+                }
+                processed++;
+            }
+            else if (!option.set_if_exist)
+            {
+                znode = zslInsert(zs->zsl,score,ele);
+                incrRefCount(ele); /* Inserted in skiplist. */
+                int tmpret = dictAdd(zs->dict_,ele,&znode->score);
+                assert (tmpret == DICT_OK);
+                incrRefCount(ele); /* Added to dictionary. */
+                server.dirty++;
+                added++;
+                processed++;
+            }
+        }
+        else
+        {
+            LOG->error() << __FUNCTION__ << "|Unknown sorted set encoding" << endl;
+        }
+    }
 
     iret = 0;
     PROC_END
@@ -1905,8 +2029,93 @@ taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std
     int iret = -1;
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sK, iret);
+
+    robj *zobj = lookupKeyWrite(db,key);
+    if (zobj == NULL)
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    verifyRobjType(zobj, OBJ_ZSET, iret);
+
+    int deleted =  0;
+    int keyremoved = 0;
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST)
+    {
+        unsigned char *eptr;
+
+        for (auto &mem : vMembers)
+        {
+            robj *mo = mem;
+            if ((eptr = zzlFind((unsigned char*)zobj->ptr, mo, NULL)) != NULL)
+            {
+                deleted++;
+                zobj->ptr = zzlDelete((unsigned char*)zobj->ptr,eptr);
+
+                if (zzlLength((unsigned char*)zobj->ptr) == 0)
+                {
+                    if (auto_del_key_if_empty_)
+                    {
+                        dbDelete(c->db,key);
+                        keyremoved = 1;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    else if (zobj->encoding == OBJ_ENCODING_SKIPLIST)
+    {
+        zset *zs = (zset*)zobj->ptr;
+        dictEntry *de;
+        double score;
+
+        for (auto &mem : vMembers)
+        {
+            robj *mo = mem;
+            de = dictFind(zs->dict_, mo);
+            if (de != NULL)
+            {
+                deleted++;
+
+                /* Delete from the skiplist */
+                score = *(double*)dictGetVal(de);
+                int tmpret = zslDelete(zs->zsl, score, mo);
+                assert (tmpret);
+
+                /* Delete from the hash table */
+                dictDelete(zs->dict_, mo);
+                if (htNeedsResize(zs->dict_))
+                    dictResize(zs->dict_);
+
+                if (dictSize(zs->dict_) == 0)
+                {
+                    if (auto_del_key_if_empty_)
+                    {
+                        dbDelete(c->db,key);
+                        keyremoved = 1;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    else
+    {
+        LOG->error() << __FUNCTION__ << "|Unknown sorted set encoding" << endl;
+    }
+
+    if (deleted > 0)
+    {
+        server.dirty += deleted;
+        if (keyremoved)
+        {
+            LOG->debug() << __FUNCTION__ << "| zset object removed since all elements deleted :" << sK << endl;
+        }
+    }
 
     iret = 0;
     PROC_END
@@ -2022,8 +2231,123 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
     int iret = -1;
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sK, iret);
+
+    robj *zobj = lookupKeyWrite(db,key);
+    if (zobj == NULL)
+    {
+        /* create one */
+        if (server.zset_max_ziplist_entries == 0 ||
+            server.zset_max_ziplist_value < sMember.size())
+        {
+            zobj = createZsetObject();
+        } else {
+            zobj = createZsetZiplistObject();
+        }
+        dbAdd(c->db,key,zobj);
+    }
+    else
+    {
+        verifyRobjType(zobj, OBJ_ZSET, iret);
+    }
+
+    double curscore = 0.0;
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST)
+    {
+        unsigned char *eptr;
+
+        /* Prefer non-encoded element when dealing with ziplists. */
+        ele = sMember;
+        if ((eptr = zzlFind((unsigned char*)zobj->ptr,ele,&curscore)) != NULL)
+        {
+            double score = curscore + increment;
+            if (isnan(score))
+            {
+                LOG->error() << __FUNCTION__ << "|not an valid float vluae"<< endl;
+                PROC_BREAK
+            }
+
+            /* Remove and re-insert when score changed. */
+            if (fabs(score - curscore)<1e-12)
+            {
+                zobj->ptr = zzlDelete((unsigned char*)zobj->ptr,eptr);
+                zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,ele,score);
+                server.dirty++;
+                updated++;
+            }
+            processed++;
+        }
+        else
+        {
+            /* Optimize: check if the element is too large or the list
+             * becomes too long *before* executing zzlInsert. */
+            zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,ele,score);
+
+            if (zzlLength((unsigned char*)zobj->ptr) > server.zset_max_ziplist_entries)
+                zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
+
+            if (sdslen((sds)ele->ptr) > server.zset_max_ziplist_value)
+                zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
+
+            server.dirty++;
+            added++;
+            processed++;
+        }
+    }
+    else if (zobj->encoding == OBJ_ENCODING_SKIPLIST)
+    {
+        zset *zs = (zset*)zobj->ptr;
+        zskiplistNode *znode;
+        dictEntry *de;
+
+        ele = sMember;
+        de = dictFind(zs->dict_,ele);
+        if (de != NULL)
+        {
+            curobj = (robj*)dictGetKey(de);
+            curscore = *(double*)dictGetVal(de);
+
+            double score = curscore + increment;
+            if (isnan(score))
+            {
+                LOG->error() << __FUNCTION__ << "|not an valid float vluae"<< endl;
+                PROC_BREAK;
+            }
+
+            /* Remove and re-insert when score changed. We can safely
+             * delete the key object from the skiplist, since the
+             * dictionary still has a reference to it. */
+            if (fabs(score - curscore) < 1e-12)
+            {
+                int tmpret = zslDelete(zs->zsl,curscore,curobj);
+                assert (tmpret);
+
+                znode = zslInsert(zs->zsl,score,curobj);
+                incrRefCount(curobj); /* Re-inserted in skiplist. */
+                dictGetVal(de) = &znode->score; /* Update score ptr. */
+                server.dirty++;
+                updated++;
+            }
+            processed++;
+        }
+        else
+        {
+            znode = zslInsert(zs->zsl,score,ele);
+            incrRefCount(ele); /* Inserted in skiplist. */
+            int tmpret = dictAdd(zs->dict_,ele,&znode->score);
+            assert (tmpret == DICT_OK);
+            incrRefCount(ele); /* Added to dictionary. */
+            server.dirty++;
+            added++;
+            processed++;
+        }
+    }
+    else
+    {
+        LOG->error() << __FUNCTION__ << "|Unknown sorted set encoding" << endl;
+        PROC_BREAK
+    }
 
     iret = 0;
     PROC_END
