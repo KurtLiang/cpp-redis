@@ -379,6 +379,22 @@ taf::Int32 RotImp::incrby(taf::Int32 appId, const std::string & sK, taf::Int64 i
     return iret;
 }
 
+
+taf::Int32 RotImp::incrbyfloat(taf::Int32 appId,const std::string & sK,taf::Double incr,taf::Double &result,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
 taf::Int32 RotImp::append(taf::Int32 appId,const std::string & sK,const std::string & sV,taf::JceCurrentPtr current)
 {
     int iret = -1;
@@ -538,6 +554,66 @@ taf::Int32 RotImp::pop(taf::Int32 appId,const std::string & sK,Comm::EListDirect
     return iret;
 }
 
+
+taf::Int32 RotImp::lindex(taf::Int32 appId,const std::string & sK,taf::Int32 index,std::string &sV,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
+taf::Int32 RotImp::lset(taf::Int32 appId,const std::string & sK,taf::Int32 index,const std::string & sV,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
+taf::Int32 RotImp::llen(taf::Int32 appId,const std::string & sK,taf::Int64 &length,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
+taf::Int32 RotImp::lrem(taf::Int32 appId,const std::string & sK,taf::Int64 count,const std::string & sV,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
 
 taf::Int32 RotImp::lrange(taf::Int32 appId,const std::string & sK,taf::Int32 istart,taf::Int32 iend,vector<std::string> &vItems,taf::JceCurrentPtr current)
 {
@@ -737,6 +813,21 @@ taf::Int32 RotImp::hmget(taf::Int32 appId,const std::string & sK,const vector<st
     return iret;
 }
 
+taf::Int32 RotImp::hgetall(taf::Int32 appId,const std::string & sK,map<std::string, std::string> &mFV,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
 taf::Int32 RotImp::hexists(taf::Int32 appId,const std::string & sK,const std::string & sField,taf::Int32 &existed,taf::JceCurrentPtr current)
 {
     existed = 0;
@@ -927,6 +1018,37 @@ taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std
 
     iret = 0;
 
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
+
+taf::Int32 RotImp::spop(taf::Int32 appId,const std::string & sK,taf::Int32 countt,vector<std::string> &vMembers,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
+    PROC_END
+
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
+    return iret;
+}
+
+taf::Int32 RotImp::sismember(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 &is_mem,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+    PROC_BEGIN
+
+    //TODO implement me
+    //
+
+    iret = 0;
     PROC_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;

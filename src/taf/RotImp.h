@@ -26,17 +26,29 @@ public:
 
     virtual taf::Int32 incrby(taf::Int32 appId,const std::string & sK,taf::Int64 incr, taf::Int64 &result, taf::JceCurrentPtr current);
 
+    virtual taf::Int32 incrbyfloat(taf::Int32 appId,const std::string & sK,taf::Double incr,taf::Double &result,taf::JceCurrentPtr current);
+
     virtual taf::Int32 append(taf::Int32 appId,const std::string & sK,const std::string & sV,taf::JceCurrentPtr current);
 
     virtual taf::Int32 push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt, int &length, taf::JceCurrentPtr current);
 
     virtual taf::Int32 pop(taf::Int32 appId,const std::string & sK,Comm::EListDirection dir,std::string &sItem,taf::JceCurrentPtr current);
 
+    virtual taf::Int32 lindex(taf::Int32 appId,const std::string & sK,taf::Int32 index,std::string &sV,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 lset(taf::Int32 appId,const std::string & sK,taf::Int32 index,const std::string & sV,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 llen(taf::Int32 appId,const std::string & sK,taf::Int64 &length,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 lrem(taf::Int32 appId,const std::string & sK,taf::Int64 count,const std::string & sV,taf::JceCurrentPtr current);
+
     virtual taf::Int32 lrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 end,vector<std::string> &vItems,taf::JceCurrentPtr current);
 
     virtual taf::Int32 hmset(taf::Int32 appId,const std::string & sK,const map<std::string, std::string> & mFV,taf::JceCurrentPtr current);
 
     virtual taf::Int32 hmget(taf::Int32 appId,const std::string & sK,const vector<std::string> & vFields,map<std::string, std::string> &mFV,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 hgetall(taf::Int32 appId,const std::string & sK,map<std::string, std::string> &mFV,taf::JceCurrentPtr current);
 
     virtual taf::Int32 hexists(taf::Int32 appId,const std::string & sK,const std::string & sField,taf::Int32 &exist_res,taf::JceCurrentPtr current);
 
@@ -45,6 +57,10 @@ public:
     virtual taf::Int32 sadd(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
 
     virtual taf::Int32 srem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 spop(taf::Int32 appId,const std::string & sK,taf::Int32 countt,vector<std::string> &vMembers,taf::JceCurrentPtr current);
+
+    virtual taf::Int32 sismember(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 &is_mem,taf::JceCurrentPtr current);
 
     virtual taf::Int32 smembers(taf::Int32 appId,const std::string & sK,vector<std::string> &vMembers,taf::JceCurrentPtr current);
 

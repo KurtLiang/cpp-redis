@@ -67,9 +67,16 @@ module Comm
         int mget(int appId, vector<string> vKs, out map<string, string> mKVs);
 
         /**
-         * @breif  INCRBY KEY INCR
+         * @breif  INCRBY key incr
+         * @return 0 on success, otherwise -1 if the corresponding value
+                     is not an ingerger.
          */
         int incrby(int appId, string sK, long incr, out long result);
+
+        /**
+         * @brief INCRBYFLAOT key incr
+         */
+        int incrbyfloat(int appId, string sK, double incr, out double result);
 
         /**
          * @brief APPEND KEY VALUE
@@ -81,18 +88,42 @@ module Comm
         /*******************************************************/
 
         /**
-         * @brief lpush/rpush/lpushx/rpushx
+         * @brief LPUSH/RPUSH/LPUSHX/RPUSHX
          */
         int push(int appId, string sK, vector<string> vItems,  EListDirection dir, ListRobjOption opt, out int length);
 
         /**
-         * @brief lpop/rpop
+         * @brief LPOP/RPOP
          */
         int pop(int appId, string sK, EListDirection dir, out string sItem);
 
+        /**
+         * @brief LINDEX key index
+         */
+        int lindex(int appId, string sK, int index, out string sV);
 
         /**
-         * @brief lrange key start stop #[stop] is included
+         * @brief LSET key index value
+         */
+        int lset(int appId, string sK, int index, string sV);
+
+        /**
+         * @brief LLEN key
+         */
+        int llen(int appId, string sK, out long length);
+
+        /**
+         *  @brief LREM key count value
+         *         remove 'count' times of values from the list.
+         *
+         *  @param count  >0: remove them from the head.
+         *                <0: remove them from the tail
+         *                =0: remove all
+         */
+        int lrem(int appId, string sK, long count, string sV);
+
+        /**
+         * @brief LRANGE key start stop #[stop] is included
          */
         int lrange(int appId, string sK, int start, int end, out vector<string> vItems);
 
@@ -109,7 +140,12 @@ module Comm
         /**
          * @brief HMGET key field [field...]
          */
-        int hmget(int appId, string sK, vector<string>  vFields, out map<string, string> mFV);
+        int hmget(int appId, string sK, vector<string> vFields, out map<string, string> mFV);
+
+        /**
+         * @brief HGETALL key
+         */
+        int hgetall(int appId, string sK, out map <string, string> mFV);
 
         /**
          * @brief HEXISTS key field
@@ -128,12 +164,22 @@ module Comm
         /**
          * @brief SADD key member [member...]
          */
-        int sadd(int appId, string sK, vector<string> sMember);
+        int sadd(int appId, string sK, vector<string> vMembers);
 
         /**
          * @brief SREM key memgber [member...]
          */
-        int srem(int appId, string sK, vector<string> sMember);
+        int srem(int appId, string sK, vector<string> vMembers);
+
+        /**
+         * @brief SPOP key [count]
+         */
+        int spop(int appId, string sK, int countt, out vector<string> vMembers);
+
+        /**
+         * @brief SISMEMBER key member
+         */
+        int sismember(int appId, string sK, string sMember, out int is_mem);
 
         /**
          * @brief SMEMBERS key
