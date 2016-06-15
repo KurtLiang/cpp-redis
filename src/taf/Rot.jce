@@ -116,11 +116,11 @@ module Comm
          *  @brief LREM key count value
          *         remove 'count' times of values from the list.
          *
-         *  @param count  >0: remove them from the head.
-         *                <0: remove them from the tail
-         *                =0: remove all
+         *  @param  toremove    >0: remove them from the head.
+         *                      <0: remove them from the tail
+         *                      =0: remove all
          */
-        int lrem(int appId, string sK, long count, string sV);
+        int lrem(int appId, string sK, long toremove, string sV);
 
         /**
          * @brief LRANGE key start stop #[stop] is included
@@ -174,7 +174,7 @@ module Comm
         /**
          * @brief SPOP key [count]
          */
-        int spop(int appId, string sK, int countt, out vector<string> vMembers);
+        int spop(int appId, string sK, int count, out vector<string> vMembers);
 
         /**
          * @brief SISMEMBER key member
@@ -187,20 +187,26 @@ module Comm
         int smembers(int appId, string sK, out vector<string> vMembers);
 
         /**
-         * @brief SINTER key [key...]
+         * @brief SINTER/SINTERSTORE key [key...]
+         * @param   storeKey    where to store the results if not empty, otherwise output to vResults.
+         * @param   vResults    output the results to it if storeKey is empty
          */
-        int sinter(int appId, vector<string> vK, out vector<string> vResults);
+        int sinter(int appId, vector<string> vK, string storeKey, out vector<string> vResults);
 
         /**
-         * @brief SDIFF key [key...]
-         *        difference result of first set between other  sets.
+         * @brief SDIFF/SDIFFSTORE key [key...]
+         *        difference result of first set from other sets.
+         * @param   storeKey    where to store the results if not empty, otherwise output to vResults.
+         * @param   vResults    output the results to it if storeKey is empty
          */
-        int sdiff(int appId, vector<string> vK, out vector<string> vResults);
+        int sdiff(int appId, vector<string> vK, string storeKey, out vector<string> vResults);
 
         /**
-         * @brief SUNION key [key...]
+         * @brief SUNION/SUNION key [key...]
+         * @param   storeKey    where to store the results if not empty, otherwise output to vResults.
+         * @param   vResults    output the results to it if storeKey is empty
          */
-        int sunion(int appId, vector<string> vK, out vector<string> vResults);
+        int sunion(int appId, vector<string> vK, string storeKey, out vector<string> vResults);
 
 
         /*******************************************************/

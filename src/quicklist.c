@@ -664,13 +664,13 @@ void quicklistDelEntry(quicklistIter *iter, quicklistEntry *entry) {
  *
  * Returns 1 if replace happened.
  * Returns 0 if replace failed and no changes happened. */
-int quicklistReplaceAtIndex(quicklist *quicklist, long index, void *data,
+int quicklistReplaceAtIndex(quicklist *quicklist, long index, const void *data,
                             int sz) {
     quicklistEntry entry;
     if (likely(quicklistIndex(quicklist, index, &entry))) {
         /* quicklistIndex provides an uncompressed node */
         entry.node->zl = ziplistDelete(entry.node->zl, &entry.zi);
-        entry.node->zl = ziplistInsert(entry.node->zl, entry.zi, (unsigned char*)data, sz);
+        entry.node->zl = ziplistInsert(entry.node->zl, entry.zi, (const unsigned char*)data, sz);
         quicklistCompress(quicklist, entry.node);
         return 1;
     } else {
@@ -1038,7 +1038,7 @@ int quicklistDelRange(quicklist *quicklist, const long start,
 }
 
 /* Passthrough to ziplistCompare() */
-int quicklistCompare(unsigned char *p1, unsigned char *p2, int p2_len) {
+int quicklistCompare(unsigned char *p1, const unsigned char *p2, int p2_len) {
     return ziplistCompare(p1, p2, p2_len);
 }
 

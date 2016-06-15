@@ -11,6 +11,9 @@
 //signalModifiedKey(db, key);
 //notifyKeyspaceEvent();
 
+#define _SCOPE_GUARD_BEGIN {
+#define _SCOPE_GUARD_END   }
+
 #define GetDb(db, appId, iret) \
     auto db = g_app.lookforDb(appId);   \
     if (db == nullptr)                  \
@@ -34,6 +37,15 @@
         LOG->error() << __FUNCTION__ << "|" << " wrong object type :" << (obj)->type << ", expecting:" << type_ << endl; \
         iret = ERR_UNKNOWN;             \
         PROC_BREAK                      \
+    }
+
+#define verifyRobjEncoding(obj, encoding_, iret) \
+    if (obj->encoding != encoding_)         \
+    {                                       \
+        LOG->error() << __FUNCTION__ << "| object encoding not matched, expecting:" \
+            << encoding_ << " got:" << obj->encoding << endl;                      \
+        iret = ERR_UNKNOWN;                 \
+        PROC_BREAK                          \
     }
 
 robj *allocateFieldObj()
@@ -71,6 +83,8 @@ void releaseFieldObj(robj *o)
 
 void RotImp::initialize()
 {
+    auto_del_key_if_empty_ = 1;
+
     shr_key_ = createRawStringObject(NULL, SHR_KEY_SIZE);
     assert (shr_key_->refcount == 1);
 }
@@ -123,7 +137,7 @@ int robj2string(robj *obj, string &str, int *iret)
     }
     else
     {
-        LOG->error() << __FUNCTION__ << "|" << " wrong obj->encoding:"
+        LOG->error() << __FUNCTION__ << "|string type, wrong obj->encoding:"
             << obj->encoding << endl;
         *iret = ERR_UNKNOWN;
         return -1;
@@ -175,7 +189,6 @@ taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string
     updateSharedKeyObj(key, sk, iret);
 
     robj *val = tryObjectEncoding(createStringObject(sV.data(), sV.length()));
-
     setKey(db, key, val);
     decrRefCount(val);
     assert (val->refcount == 1 || val->encoding == OBJ_ENCODING_INT);//maybe shared integers
@@ -312,16 +325,15 @@ taf::Int32 RotImp::mget(taf::Int32 appId,const vector<std::string> & vKs, map<st
  */
 taf::Int32 RotImp::incrby(taf::Int32 appId, const std::string & sK, taf::Int64 incr, taf::Int64 &result, taf::JceCurrentPtr current)
 {
+    result = 0;
     int iret = -1;
 
     PROC_BEGIN
     __TRY__
 
-    GetDb(db, appId, iret);
-
-    result = 0;
     long long value = 0;
 
+    GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret)
 
     robj *vobj = lookupKeyWrite(db, key);
@@ -332,7 +344,7 @@ taf::Int32 RotImp::incrby(taf::Int32 appId, const std::string & sK, taf::Int64 i
 
         if (getLongLongFromObject(vobj, &value) != C_OK)
         {
-            LOG->error() << " value is not an integer or out of range "<< endl;
+            LOG->error() << "value is not an integer or out of range. app-id:"<<appId << " key:" << sK << endl;
             iret = ERR_UNKNOWN;
             PROC_BREAK
         }
@@ -358,18 +370,13 @@ taf::Int32 RotImp::incrby(taf::Int32 appId, const std::string & sK, taf::Int64 i
     {
         robj *new_vobj = createStringObjectFromLongLong(value);
         if (vobj)
-        {
             dbOverwrite(db, key,new_vobj);
-        }
         else
-        {
             dbAdd(db, key, new_vobj);
-        }
     }
 
     ++server.dirty;
     result = value;
-
     iret = 0;
 
     __CATCH__
@@ -382,13 +389,46 @@ taf::Int32 RotImp::incrby(taf::Int32 appId, const std::string & sK, taf::Int64 i
 
 taf::Int32 RotImp::incrbyfloat(taf::Int32 appId,const std::string & sK,taf::Double incr,taf::Double &result,taf::JceCurrentPtr current)
 {
+    result = 0;
     int iret = -1;
+
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    long double value = 0;
 
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sk, iret)
+
+    robj *vobj = lookupKeyWrite(db, key);
+    if (vobj)
+    {
+        verifyRobjType(vobj, OBJ_STRING, iret);
+        if (getLongDoubleFromObject(vobj, &value) != C_OK)
+        {
+            LOG->error() << "value is not an valid float. app-id:" << appId << "  key:" << sK << endl;
+            iret = ERR_UNKNOWN;
+            PROC_BREAK
+        }
+    }
+
+    value += incr;
+    if (isnan(value) || isinf(value))
+    {
+        LOG->error() << "increment would produce NaN or Infinity. app-id:" << appId << "  key:" << sK << endl;
+        iret = ERR_UNKNOWN;
+        PROC_BREAK
+    }
+
+    robj *new_o = createStringObjectFromLongDouble(value,1);
+    if (vobj)
+        dbOverwrite(db, key, new_o);
+    else
+        dbAdd(db, key,new_o);
+
+    server.dirty++;
+    result = value;
     iret = 0;
+
     PROC_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
@@ -449,7 +489,6 @@ taf::Int32 RotImp::append(taf::Int32 appId,const std::string & sK,const std::str
     return iret;
 }
 
-
 taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt, int &length, taf::JceCurrentPtr current)
 {
     length = 0;
@@ -500,9 +539,7 @@ taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std
     }
 
     server.dirty += pushed;
-
     length = listTypeLength(lobj);
-
     iret = 0;
 
     __CATCH__
@@ -531,16 +568,17 @@ taf::Int32 RotImp::pop(taf::Int32 appId,const std::string & sK,Comm::EListDirect
     verifyRobjType(lobj, OBJ_LIST, iret);
 
     int where = (dir == Comm::ELIST_HEAD?LIST_HEAD:LIST_TAIL);
-    robj* val = listTypePop(lobj, where);
+    robj* val = listTypePop(lobj, where); //TOHACK unwind
     if (val == NULL)
     {
-        iret = 0;// or ERR_NOEXISTS?
+        iret = ERR_NOEXISTS;
         PROC_BREAK
     }
 
     if (robj2string(val, sItem, &iret))
     {
-        decrRefCount(val); //don't forget to release object
+        sItem.clear();
+        decrRefCount(val); //don't forget to release object!!!
         PROC_BREAK
     }
 
@@ -560,8 +598,35 @@ taf::Int32 RotImp::lindex(taf::Int32 appId,const std::string & sK,taf::Int32 ind
     int iret = -1;
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sk, iret);
+
+    robj *lobj = lookupKeyRead(db, key);
+    if (lobj == NULL) //no such list
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    verifyRobjType(lobj, OBJ_LIST, iret);
+    verifyRobjEncoding(lobj, OBJ_ENCODING_QUICKLIST, iret);
+
+    quicklistEntry qe;
+    if (!quicklistIndex((quicklist*)lobj->ptr, index, &qe))
+    {
+        //0-not found
+        iret = ERR_NOEXISTS;
+        PROC_BREAK
+    }
+
+    if (qe.value)
+    {
+        sV.assign((char*)qe.value, qe.sz);
+    }
+    else
+    {
+        sV = std::to_string(qe.longval);
+    }
 
     iret = 0;
     PROC_END
@@ -575,10 +640,30 @@ taf::Int32 RotImp::lset(taf::Int32 appId,const std::string & sK,taf::Int32 index
     int iret = -1;
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sk, iret);
 
+    robj *lobj = lookupKeyWrite(db, key);
+    if (lobj == NULL)
+    {
+        PROC_BREAK
+    }
+
+    verifyRobjType(lobj, OBJ_LIST, iret);
+    verifyRobjEncoding(lobj, OBJ_ENCODING_QUICKLIST, iret);
+
+    quicklist *ql = (quicklist*)lobj->ptr;
+    int replaced =  quicklistReplaceAtIndex(ql, index, sV.data(), sV.length());
+    if (!replaced)
+    {
+        LOG->error() << __FUNCTION__ << "|out of range" << endl;
+        iret = ERR_OUTOFRANGE;
+        PROC_BREAK
+    }
+
+    ++server.dirty;
     iret = 0;
+
     PROC_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
@@ -587,11 +672,23 @@ taf::Int32 RotImp::lset(taf::Int32 appId,const std::string & sK,taf::Int32 index
 
 taf::Int32 RotImp::llen(taf::Int32 appId,const std::string & sK,taf::Int64 &length,taf::JceCurrentPtr current)
 {
+    length = 0;
     int iret = -1;
+
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sk, iret);
+
+    robj *lobj = lookupKeyRead(db, key);
+    if (lobj == NULL)
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    verifyRobjType(lobj, OBJ_LIST, iret);
+    length =listTypeLength(lobj);
 
     iret = 0;
     PROC_END
@@ -600,15 +697,70 @@ taf::Int32 RotImp::llen(taf::Int32 appId,const std::string & sK,taf::Int64 &leng
     return iret;
 }
 
-taf::Int32 RotImp::lrem(taf::Int32 appId,const std::string & sK,taf::Int64 count,const std::string & sV,taf::JceCurrentPtr current)
+taf::Int32 RotImp::lrem(taf::Int32 appId,const std::string & sK,taf::Int64 toremove,const std::string & sV,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    long removed = 0;
 
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sk, iret);
+
+    robj *lobj = lookupKeyWrite(db, key);
+    if (lobj == NULL)
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    verifyRobjType(lobj, OBJ_LIST, iret);
+    verifyRobjEncoding(lobj, OBJ_ENCODING_QUICKLIST, iret);
+
+    listTypeIterator *li=nullptr;
+    _SCOPE_GUARD_BEGIN
+
+    if (toremove < 0)
+    {
+        toremove = -toremove;
+        li = listTypeInitIterator(lobj,-1,LIST_HEAD);
+    } else
+    {
+        li = listTypeInitIterator(lobj,0,LIST_TAIL);
+    }
+
+    listTypeEntry entry;
+    while (listTypeNext(li,&entry))
+    {
+        if (quicklistCompare(entry.entry.zi, (const unsigned char*)sV.data(), sV.length())) //return 1 if equal
+        {
+            listTypeDelete(li, &entry);
+            server.dirty++;
+            removed++;
+            if (toremove && removed == toremove)
+                break;
+        }
+    }
+
+    _SCOPE_GUARD_END
+    listTypeReleaseIterator(li);
+
+    int keyremoved = 0;
+    if (removed > 0 && listTypeLength(lobj) == 0)
+    {
+        if (auto_del_key_if_empty_)
+        {
+            dbDelete(db, key);
+            keyremoved = 1;
+        }
+    }
+
+    if (keyremoved)
+    {
+        LOG->debug() << __FUNCTION__ << "| list object removed since all elements deleted :" << sK << endl;
+    }
     iret = 0;
+
     PROC_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
@@ -632,14 +784,7 @@ taf::Int32 RotImp::lrange(taf::Int32 appId,const std::string & sK,taf::Int32 ist
     }
 
     verifyRobjType(lobj, OBJ_LIST, iret);
-
-    if (lobj->encoding != OBJ_ENCODING_QUICKLIST)
-    {
-        LOG->error() << __FUNCTION__ << "| object encoding not matched, expecting:"
-            << OBJ_ENCODING_QUICKLIST << ", got:" << lobj->encoding << endl;
-
-        PROC_BREAK
-    }
+    verifyRobjEncoding(lobj, OBJ_ENCODING_QUICKLIST, iret);
 
     long start = istart;
     long end   = iend;
@@ -818,10 +963,71 @@ taf::Int32 RotImp::hgetall(taf::Int32 appId,const std::string & sK,map<std::stri
     int iret = -1;
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sK, iret);
+
+    robj *hobj = lookupKeyRead(db, key);
+    if (hobj == NULL)
+    {
+        iret = ERR_NOEXISTS;
+        PROC_BREAK
+    }
+
+    verifyRobjType(hobj, OBJ_HASH, iret);
+
+    hashTypeIterator *hi = hashTypeInitIterator(hobj);
+    _SCOPE_GUARD_BEGIN
+
+    while (hashTypeNext(hi) != C_ERR)
+    {
+        if (hi->encoding == OBJ_ENCODING_ZIPLIST)
+        {
+            unsigned char *vstr = NULL;
+            unsigned int vlen = UINT_MAX;
+            long long vll = LLONG_MAX;
+
+            string ssk, ssv;
+            if (!ziplistGet(hi->fptr, &vstr, &vlen, &vll))//key
+                continue;
+
+            if (vstr) ssk.assign((char*)vstr, vlen);
+            else      ssk = std::to_string(vll);
+
+            vstr = NULL;
+            vlen = UINT_MAX;
+            vll = LLONG_MAX;
+            if (!ziplistGet(hi->vptr, &vstr, &vlen, &vll)) //value
+                continue;
+
+            if (vstr) ssv.assign((char*)vstr, vlen);
+            else      ssv = std::to_string(vll);
+
+            mFV[ssk] = ssv;
+        }
+        else if (hi->encoding == OBJ_ENCODING_HT)
+        {
+            robj *k = (robj*)dictGetKey(hi->de);
+            robj *v = (robj*)dictGetVal(hi->de);
+            if (!k || !v) continue;
+
+            int t;
+            string ssk, ssv;
+            if (robj2string(k, ssk, &t)) continue;
+            if (robj2string(v, ssv, &t)) continue;
+            mFV[ssk] = ssv;
+        }
+        else
+        {
+            LOG->error() << __FUNCTION__ << "|Unknown hash encoding" << endl;
+            continue;
+        }
+    }
+
+    _SCOPE_GUARD_END
+    hashTypeReleaseIterator(hi);
 
     iret = 0;
+
     PROC_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
@@ -897,13 +1103,16 @@ taf::Int32 RotImp::hdel(taf::Int32 appId,const std::string & sK,const vector<std
         ++deleted;
         if (hashTypeLength(hobj) == 0)
         {
-            dbDelete(db, key);
-            keyremoved = 1;
+            if (auto_del_key_if_empty_)
+            {
+                dbDelete(db, key);
+                keyremoved = 1;
+            }
             break;
         }
     }
-    server.dirty += deleted;
 
+    server.dirty += deleted;
     if (keyremoved)
     {
         LOG->debug() << __FUNCTION__ << "| hash object removed since all fields deleted :" << sK << endl;
@@ -1004,8 +1213,11 @@ taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std
 
         if (setTypeSize(setobj) == 0)
         {
-            dbDelete(db, key);
-            keyremoved = 1;
+            if (auto_del_key_if_empty_)
+            {
+                dbDelete(db, key);
+                keyremoved = 1;
+            }
             break;
         }
     }
@@ -1025,10 +1237,19 @@ taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std
 }
 
 
-taf::Int32 RotImp::spop(taf::Int32 appId,const std::string & sK,taf::Int32 countt,vector<std::string> &vMembers,taf::JceCurrentPtr current)
+taf::Int32 RotImp::spop(taf::Int32 appId,const std::string & sK,taf::Int32 count,vector<std::string> &vMembers,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN
+
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sK, iret);
+
+    //TODO
+    //robj *setobj = lookupKeyWrite()
+
+
+    long size = 0;
 
     //TODO implement me
     //
@@ -1042,11 +1263,31 @@ taf::Int32 RotImp::spop(taf::Int32 appId,const std::string & sK,taf::Int32 count
 
 taf::Int32 RotImp::sismember(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 &is_mem,taf::JceCurrentPtr current)
 {
+    is_mem = 0;
     int iret = -1;
+
     PROC_BEGIN
 
-    //TODO implement me
-    //
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sK, iret);
+
+    robj *setobj = lookupKeyRead(db, key);
+    if (setobj == NULL)
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    verifyRobjType(setobj, OBJ_SET, iret);
+
+    robj *mem_o = tryObjectEncoding(createStringObject(sMember.data(), sMember.length()));
+    _SCOPE_GUARD_BEGIN
+
+    if (setTypeIsMember(setobj, mem_o))
+        is_mem = 1;
+
+    _SCOPE_GUARD_END
+    decrRefCount(mem_o);
 
     iret = 0;
     PROC_END
@@ -1060,7 +1301,22 @@ taf::Int32 RotImp::smembers(taf::Int32 appId,const std::string & sK,vector<std::
     int iret = -1;
     PROC_BEGIN
 
+    GetDb(db, appId, iret);
+    updateSharedKeyObj(key, sK, iret);
+
+    robj *setobj = lookupKeyRead(db, key);
+    if (setobj == NULL)
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
+    verifyRobjType(setobj, OBJ_SET, iret);
+
     //TODO implement me
+    //
+    //
+    //
     //
 
     iret = 0;
@@ -1070,7 +1326,7 @@ taf::Int32 RotImp::smembers(taf::Int32 appId,const std::string & sK,vector<std::
     return iret;
 }
 
-taf::Int32 RotImp::sinter(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current)
+taf::Int32 RotImp::sinter(taf::Int32 appId,const vector<std::string> & vK, const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN
@@ -1085,7 +1341,7 @@ taf::Int32 RotImp::sinter(taf::Int32 appId,const vector<std::string> & vK,vector
     return iret;
 }
 
-taf::Int32 RotImp::sdiff(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current)
+taf::Int32 RotImp::sdiff(taf::Int32 appId,const vector<std::string> & vK, const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN
@@ -1100,7 +1356,7 @@ taf::Int32 RotImp::sdiff(taf::Int32 appId,const vector<std::string> & vK,vector<
     return iret;
 }
 
-taf::Int32 RotImp::sunion(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current)
+taf::Int32 RotImp::sunion(taf::Int32 appId,const vector<std::string> & vK, const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN

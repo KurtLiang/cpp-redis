@@ -135,7 +135,7 @@ void quicklistInsertAfter(quicklist *quicklist, quicklistEntry *node,
 void quicklistInsertBefore(quicklist *quicklist, quicklistEntry *node,
                            void *value, const size_t sz);
 void quicklistDelEntry(quicklistIter *iter, quicklistEntry *entry);
-int quicklistReplaceAtIndex(quicklist *quicklist, long index, void *data,
+int quicklistReplaceAtIndex(quicklist *quicklist, long index, const void *data,
                             int sz);
 int quicklistDelRange(quicklist *quicklist, const long start, const long stop);
 quicklistIter *quicklistGetIterator(const quicklist *quicklist, int direction);
@@ -155,7 +155,7 @@ int quicklistPopCustom(quicklist *quicklist, int where, unsigned char **data,
 int quicklistPop(quicklist *quicklist, int where, unsigned char **data,
                  unsigned int *sz, long long *slong);
 unsigned int quicklistCount(quicklist *ql);
-int quicklistCompare(unsigned char *p1, unsigned char *p2, int p2_len);
+int quicklistCompare(unsigned char *p1, const unsigned char *p2, int p2_len);
 size_t quicklistGetLzf(const quicklistNode *node, void **data);
 
 #ifdef REDIS_TEST

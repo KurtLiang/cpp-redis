@@ -40,7 +40,7 @@ public:
 
     virtual taf::Int32 llen(taf::Int32 appId,const std::string & sK,taf::Int64 &length,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 lrem(taf::Int32 appId,const std::string & sK,taf::Int64 count,const std::string & sV,taf::JceCurrentPtr current);
+    virtual taf::Int32 lrem(taf::Int32 appId,const std::string & sK,taf::Int64 toremove,const std::string & sV,taf::JceCurrentPtr current);
 
     virtual taf::Int32 lrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 end,vector<std::string> &vItems,taf::JceCurrentPtr current);
 
@@ -58,17 +58,17 @@ public:
 
     virtual taf::Int32 srem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 spop(taf::Int32 appId,const std::string & sK,taf::Int32 countt,vector<std::string> &vMembers,taf::JceCurrentPtr current);
+    virtual taf::Int32 spop(taf::Int32 appId,const std::string & sK,taf::Int32 count,vector<std::string> &vMembers,taf::JceCurrentPtr current);
 
     virtual taf::Int32 sismember(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 &is_mem,taf::JceCurrentPtr current);
 
     virtual taf::Int32 smembers(taf::Int32 appId,const std::string & sK,vector<std::string> &vMembers,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 sinter(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current);
+    virtual taf::Int32 sinter(taf::Int32 appId,const vector<std::string> & vK,const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 sdiff(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current);
+    virtual taf::Int32 sdiff(taf::Int32 appId,const vector<std::string> & vK,const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 sunion(taf::Int32 appId,const vector<std::string> & vK,vector<std::string> &vResults,taf::JceCurrentPtr current);
+    virtual taf::Int32 sunion(taf::Int32 appId,const vector<std::string> & vK,const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current);
 
     virtual taf::Int32 zadd(taf::Int32 appId,const std::string & sK,const vector<Comm::ZsetScoreMember> & vScoreMember,const Comm::ZsetRobjOption & option,taf::JceCurrentPtr current);
 
@@ -96,6 +96,7 @@ private:
 
 private:
     redisObject* shr_key_;
+    char  auto_del_key_if_empty_;
 };
 
 #endif
