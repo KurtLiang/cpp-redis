@@ -54,7 +54,7 @@ module Comm
         /**
          * @brief  MSET key value [key value...]
          */
-        int mset(int appId, map<string, string> mKVs, StringRobjOption opt);
+        int mset(int appId, map<string, string> mKVs, int if_not_exist);
 
         /**
          * @brief  GET key

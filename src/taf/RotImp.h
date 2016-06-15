@@ -18,7 +18,7 @@ public:
 
     virtual taf::Int32 set(taf::Int32 appId,const std::string & sK,const std::string & sV, const Comm::StringRobjOption &opt, taf::JceCurrentPtr current);
 
-    virtual taf::Int32 mset(taf::Int32 appId,const map<std::string, std::string> & mKVs, const Comm::StringRobjOption &opt, taf::JceCurrentPtr current);
+    virtual taf::Int32 mset(taf::Int32 appId,const map<std::string, std::string> & mKVs, int if_not_exist, taf::JceCurrentPtr current);
 
     virtual taf::Int32 get(taf::Int32 appId,const std::string & sK,std::string &sV,taf::JceCurrentPtr current);
 

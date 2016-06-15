@@ -7,6 +7,7 @@
 
 #define SHR_KEY_SIZE        512
 #define HT_FIELD_SIZE       256
+#define HT_NORMAL_SIZE      1024
 
 //TOHACK need these?
 //signalModifiedKey(db, key);
@@ -51,26 +52,36 @@
 
 using boost::multi_index::detail::make_guard;
 
-robj *allocateFieldObj()
+robj *allocateStringObj(size_t init_len)
 {
-    return createStringObject(NULL, HT_FIELD_SIZE);
+    return createStringObject(NULL, init_len);
 }
 
-int fillFieldObj(robj *o, const string &s)
+int fillStringObj(robj *o, const string &s, int auto_enlarge=0)
 {
-
-    if (s.size() >= HT_FIELD_SIZE)
+    if (s.size() >= sdsalloc((sds)o->ptr))
     {
-        LOG->error() << __FUNCTION__ << "field string is too large:" << s.size()
-            << ", part of it:" << s.substr(0, 64)<< endl;
-        return 1;
+        if (!auto_enlarge)
+        {
+            LOG->error() << __FUNCTION__ << "|string is too large:" << s.size()
+                << " reserved:"  << sdsalloc((sds)o->ptr)
+                << ", part of it:" << s.substr(0, 64)<< endl;
+            return 1;
+        }
+
+        sdssetalloc((sds)o->ptr, s.size()+1);
+        if (s.size() >= sdsalloc((sds)o->ptr))
+        {
+            LOG->error() << __FUNCTION__  <<"|failed to enlarge sds" << endl;
+            return 1;
+        }
     }
 
     o->ptr = sdscpylen((sds)o->ptr, s.data(), s.length());
     return 0;
 }
 
-void releaseFieldObj(robj *o)
+void releaseObj(robj *o)
 {
     if (o)
     {
@@ -205,8 +216,6 @@ taf::Int32 RotImp::getAppName(taf::Int32 appId,std::string &appName,taf::JceCurr
  */
 taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string & sV, const Comm::StringRobjOption &opt, taf::JceCurrentPtr current)
 {
-    //TODO opt
-
     int iret = -1;
 
     PROC_BEGIN
@@ -215,9 +224,23 @@ taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
 
+    if ((opt.set_if_not_exist && lookupKeyWrite(db, key)!= NULL) ||
+        (opt.set_if_exist && lookupKeyWrite(db, key) == NULL))
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
     robj *val = tryObjectEncoding(createStringObject(sV.data(), sV.length()));
     setKey(db, key, val);
     decrRefCount(val);
+
+    if (opt.set_expire)
+    {
+        long long millisec = mstime() + opt.expire_time * 1000; //in milliseconds
+        setExpire(db, key, millisec);
+    }
+
     assert (val->refcount == 1 || val->encoding == OBJ_ENCODING_INT);//maybe shared integers
     ++server.dirty;
 
@@ -231,16 +254,37 @@ taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string
 }
 
 
-taf::Int32 RotImp::mset(taf::Int32 appId,const map<std::string, std::string> & mKVs, const Comm::StringRobjOption &opt, taf::JceCurrentPtr current)
+/*
+ * @NOTICE  when 'if_not_exist' is set, only if all keys doesn't exist, then set these strings.
+ */
+taf::Int32 RotImp::mset(taf::Int32 appId,const map<std::string, std::string> & mKVs, int if_not_exist, taf::JceCurrentPtr current)
 {
-    //TODO opt
-
     int iret = -1;
 
     PROC_BEGIN
     __TRY__
 
     GetDb(db, appId, iret);
+
+    if (if_not_exist)
+    {
+        int busykeys = 0;
+        for (auto &KV:mKVs)
+        {
+            robj *key = copyGetSharedKey(KV.first);
+            if (lookupKeyWrite(db, key) != NULL)
+            {
+                busykeys = 1;
+                break;
+            }
+        }
+
+        if (busykeys)
+        {
+            iret = 0;
+            PROC_BREAK
+        }
+    }
 
     for (auto &KV : mKVs)
     {
@@ -882,19 +926,34 @@ taf::Int32 RotImp::hmset(taf::Int32 appId,const std::string & sK,const map<std::
         verifyRobjType(hobj, OBJ_HASH, iret);
     }
 
+    /* check the length of objects to see if we need convert a ziplist to a real hash */
+    if (hobj->encoding == OBJ_ENCODING_ZIPLIST)
+    {
+        const size_t max_ziplist_val = server.hash_max_ziplist_value;
+        for (auto &fv : mFV)
+        {
+            if (fv.first.size() > max_ziplist_val || fv.second.size() > max_ziplist_val)
+            {
+                hashTypeConvert(hobj, OBJ_ENCODING_HT);
+                break;
+            }
+        }
+    }
+
+    robj *fld = allocateStringObj(HT_FIELD_SIZE);
+    robj *val = allocateStringObj(HT_NORMAL_SIZE);
     for (auto &fv : mFV)
     {
-        auto &field = fv.first;
-        auto &value = fv.second;
+        if (fillStringObj(fld, fv.second))
+            continue;
 
-        UNUSED(field);
-        UNUSED(value);
+        if (fillStringObj(val, fv.second, 1))
+            continue;
 
-        //TODO
-
-
-
+        hashTypeSet(hobj, fld, val);
     }
+    releaseObj(fld);
+    releaseObj(val);
 
     ++server.dirty;
     iret = 0;
@@ -924,7 +983,7 @@ taf::Int32 RotImp::hmget(taf::Int32 appId,const std::string & sK,const vector<st
 
     verifyRobjType(hobj, OBJ_HASH, iret);
 
-    fldobj = allocateFieldObj();
+    fldobj = allocateStringObj(HT_FIELD_SIZE);
 
     int err_encoding = 0;
     string sval;
@@ -932,7 +991,7 @@ taf::Int32 RotImp::hmget(taf::Int32 appId,const std::string & sK,const vector<st
     {
         sval.clear();
 
-        if (fillFieldObj(fldobj, field))
+        if (fillStringObj(fldobj, field))
             continue;
 
         if (hobj->encoding == OBJ_ENCODING_ZIPLIST)
@@ -978,7 +1037,7 @@ taf::Int32 RotImp::hmget(taf::Int32 appId,const std::string & sK,const vector<st
     iret = 0;
     PROC_END
 
-    releaseFieldObj(fldobj);
+    releaseObj(fldobj);
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1078,15 +1137,15 @@ taf::Int32 RotImp::hexists(taf::Int32 appId,const std::string & sK,const std::st
 
     verifyRobjType(hobj, OBJ_HASH, iret);
 
-    auto fldobj = allocateFieldObj();
-    if (fillFieldObj(fldobj, sField))
+    auto fldobj = allocateStringObj(HT_FIELD_SIZE);
+    if (fillStringObj(fldobj, sField))
     {
         PROC_BREAK
     }
 
     if (hashTypeExists(hobj, fldobj))
         existed = 1;
-    releaseFieldObj(fldobj);
+    releaseObj(fldobj);
 
     iret =0;
 
@@ -1116,10 +1175,10 @@ taf::Int32 RotImp::hdel(taf::Int32 appId,const std::string & sK,const vector<std
 
     int deleted = 0;
     int keyremoved = 0;
-    fldobj = allocateFieldObj();
+    fldobj = allocateStringObj(HT_FIELD_SIZE);
     for (auto &sF : vFields)
     {
-        if (fillFieldObj(fldobj, sF))
+        if (fillStringObj(fldobj, sF))
             continue;
 
         if (hashTypeDelete(hobj, fldobj))
@@ -1146,7 +1205,7 @@ taf::Int32 RotImp::hdel(taf::Int32 appId,const std::string & sK,const vector<std
     iret = 0;
     PROC_END
 
-    releaseFieldObj(fldobj);
+    releaseObj(fldobj);
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
