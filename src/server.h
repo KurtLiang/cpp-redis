@@ -1649,6 +1649,9 @@ void linuxMemoryWarnings(void);
 int hashTypeGetFromZiplist(robj *o, robj *field, unsigned char **vstr, unsigned int *vlen, long long *vll);
 int hashTypeGetFromHashTable(robj *o, robj *field, robj **value);
 zskiplistNode* zslGetElementByRank(zskiplist *zsl, unsigned long rank);
+unsigned char *zzlFind(unsigned char *zl, robj *ele, double *score);
+unsigned char *zzlDelete(unsigned char *zl, unsigned char *eptr);
+unsigned int zzlLength(unsigned char *zl);
 #endif
 
 #if defined(__GNUC__)

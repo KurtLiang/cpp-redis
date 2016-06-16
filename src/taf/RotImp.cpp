@@ -7,7 +7,10 @@
 
 #define SHR_KEY_SIZE        512
 #define HT_FIELD_SIZE       256
-#define HT_NORMAL_SIZE      1024
+#define STRING_TINY_SIZE    16
+#define STRING_SMALL_SIZE   32
+#define STRING_NORMAL_SIZE  128
+#define STRING_LARGE_SIZE   1024
 
 //TOHACK need these?
 //signalModifiedKey(db, key);
@@ -59,18 +62,19 @@ robj *allocateStringObj(size_t init_len)
 
 int fillStringObj(robj *o, const string &s, int auto_enlarge=0)
 {
-    if (s.size() >= sdsalloc((sds)o->ptr))
+    sds ds = (sds)o->ptr;
+    if (s.size() >= sdsalloc(ds))
     {
         if (!auto_enlarge)
         {
             LOG->error() << __FUNCTION__ << "|string is too large:" << s.size()
-                << " reserved:"  << sdsalloc((sds)o->ptr)
+                << " reserved:"  << sdsalloc(ds)
                 << ", part of it:" << s.substr(0, 64)<< endl;
             return 1;
         }
 
-        sdssetalloc((sds)o->ptr, s.size()+1);
-        if (s.size() >= sdsalloc((sds)o->ptr))
+        sdssetalloc(ds, s.size()+1);
+        if (s.size() >= sdsalloc(ds))
         {
             LOG->error() << __FUNCTION__  <<"|failed to enlarge sds" << endl;
             return 1;
@@ -81,16 +85,15 @@ int fillStringObj(robj *o, const string &s, int auto_enlarge=0)
     return 0;
 }
 
+/**
+ * @NOTICE  only decrease ref count by 1, since object may be shared in db.
+ */
 void releaseObj(robj *o)
 {
     if (o)
     {
-        assert (o->refcount == 1);
-        int cnt = o->refcount;
-        while (cnt-- > 0)
-        {
-            decrRefCount(o);
-        }
+        assert (o->refcount >= 1);
+        decrRefCount(o);
     }
 }
 
@@ -482,7 +485,7 @@ taf::Int32 RotImp::incrbyfloat(taf::Int32 appId,const std::string & sK,taf::Doub
     }
 
     value += incr;
-    if (isnan(value) || isinf(value))
+    if (std::isnan(value) || isinf(value))
     {
         LOG->error() << "increment would produce NaN or Infinity. app-id:" << appId << "  key:" << sK << endl;
         iret = ERR_UNKNOWN;
@@ -941,10 +944,10 @@ taf::Int32 RotImp::hmset(taf::Int32 appId,const std::string & sK,const map<std::
     }
 
     robj *fld = allocateStringObj(HT_FIELD_SIZE);
-    robj *val = allocateStringObj(HT_NORMAL_SIZE);
+    robj *val = allocateStringObj(STRING_NORMAL_SIZE);
     for (auto &fv : mFV)
     {
-        if (fillStringObj(fld, fv.second))
+        if (fillStringObj(fld, fv.second, 1))
             continue;
 
         if (fillStringObj(val, fv.second, 1))
@@ -1885,12 +1888,12 @@ taf::Int32 RotImp::sunion(taf::Int32 appId,const vector<std::string> & vK, const
 }
 
 
-taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Comm::ZsetScoreMember> & vScoreMember,const Comm::ZsetRobjOption & option,taf::JceCurrentPtr current)
+taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Comm::ZsetScoreMember> & vScoreMembers,const Comm::ZsetRobjOption & option,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN
 
-    if (vScoreMember.empty())
+    if (vScoreMembers.empty())
     {
         iret = 0;
         PROC_BREAK
@@ -1909,42 +1912,46 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
         }
 
         auto &sm = vScoreMembers[0];
-        if (server.zset_max_ziplist_entries == 0 ||
-            server.zset_max_ziplist_value < sm.member.size())
+        if (server.zset_max_ziplist_entries == 0 || server.zset_max_ziplist_value < sm.member.size())
         {
             zobj = createZsetObject();
-        } else {
+        }
+        else
+        {
             zobj = createZsetZiplistObject();
         }
-        dbAdd(c->db,key,zobj);
+        dbAdd(db, key, zobj);
     }
     else
     {
         verifyRobjType(zobj, OBJ_ZSET, iret);
     }
 
-    double curscore = 0.0;
+    int encoding_err=0;
     int added=0;
     int updated = 0;
     int processed = 0;
     for (auto &sm : vScoreMembers)
     {
+        robj *mo = createStringObject(sm.member.data(), sm.member.length());
+        auto guard = make_guard([&mo](){ releaseObj(mo);});
+
         if (zobj->encoding == OBJ_ENCODING_ZIPLIST)
         {
             unsigned char *eptr;
+            double curscore = 0.0;
 
             /* Prefer non-encoded element when dealing with ziplists. */
-            ele = sm.member;
-            if ((eptr = zzlFind((unsigned char*)zobj->ptr,ele,&curscore)) != NULL)
+            if ((eptr = zzlFind((unsigned char*)zobj->ptr,mo,&curscore)) != NULL)
             {
                 if (option.set_if_not_exist)
                     continue;
 
                 /* Remove and re-insert when score changed. */
-                if (fabs(score - curscore)<1e-12)
+                if (fabs(sm.score - curscore)<1e-12)
                 {
                     zobj->ptr = zzlDelete((unsigned char*)zobj->ptr,eptr);
-                    zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,ele,score);
+                    zobj->ptr = zzlInsert((unsigned char*)zobj->ptr, mo, sm.score);
                     server.dirty++;
                     updated++;
                 }
@@ -1954,12 +1961,12 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
             {
                 /* Optimize: check if the element is too large or the list
                  * becomes too long *before* executing zzlInsert. */
-                zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,ele,score);
+                zobj->ptr = zzlInsert((unsigned char*)zobj->ptr, mo, sm.score);
 
                 if (zzlLength((unsigned char*)zobj->ptr) > server.zset_max_ziplist_entries)
                     zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
 
-                if (sdslen((sds)ele->ptr) > server.zset_max_ziplist_value)
+                if (sdslen((sds)mo->ptr) > server.zset_max_ziplist_value)
                     zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
 
                 server.dirty++;
@@ -1973,25 +1980,24 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
             zskiplistNode *znode;
             dictEntry *de;
 
-            ele = sm.member;
-            de = dictFind(zs->dict_,ele);
+            de = dictFind(zs->dict_, mo);
             if (de != NULL)
             {
                 if (option.set_if_not_exist)
                     continue;
 
-                curobj = (robj*)dictGetKey(de);
-                curscore = *(double*)dictGetVal(de);
+                robj* curobj = (robj*)dictGetKey(de);
+                double curscore = *(double*)dictGetVal(de);
 
                 /* Remove and re-insert when score changed. We can safely
                  * delete the key object from the skiplist, since the
                  * dictionary still has a reference to it. */
-                if (fabs(score - curscore) < 1e-12)
+                if (fabs(sm.score - curscore) < 1e-12)
                 {
                     int tmpret = zslDelete(zs->zsl,curscore,curobj);
                     assert (tmpret);
 
-                    znode = zslInsert(zs->zsl,score,curobj);
+                    znode = zslInsert(zs->zsl, sm.score,curobj);
                     incrRefCount(curobj); /* Re-inserted in skiplist. */
                     dictGetVal(de) = &znode->score; /* Update score ptr. */
                     server.dirty++;
@@ -2001,11 +2007,11 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
             }
             else if (!option.set_if_exist)
             {
-                znode = zslInsert(zs->zsl,score,ele);
-                incrRefCount(ele); /* Inserted in skiplist. */
-                int tmpret = dictAdd(zs->dict_,ele,&znode->score);
+                znode = zslInsert(zs->zsl, sm.score, mo);
+                incrRefCount(mo); /* Inserted in skiplist. */
+                int tmpret = dictAdd(zs->dict_,mo,&znode->score);
                 assert (tmpret == DICT_OK);
-                incrRefCount(ele); /* Added to dictionary. */
+                incrRefCount(mo); /* Added to dictionary. */
                 server.dirty++;
                 added++;
                 processed++;
@@ -2013,8 +2019,15 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
         }
         else
         {
+            encoding_err=1;
             LOG->error() << __FUNCTION__ << "|Unknown sorted set encoding" << endl;
+            break;
         }
+    }
+
+    if (encoding_err)
+    {
+        PROC_BREAK
     }
 
     iret = 0;
@@ -2047,9 +2060,12 @@ taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std
     {
         unsigned char *eptr;
 
+        robj *mo   = allocateStringObj(STRING_NORMAL_SIZE);
+        auto guard = make_guard([&mo](){ releaseObj(mo);});
+
         for (auto &mem : vMembers)
         {
-            robj *mo = mem;
+            fillStringObj(mo, mem, 1);
             if ((eptr = zzlFind((unsigned char*)zobj->ptr, mo, NULL)) != NULL)
             {
                 deleted++;
@@ -2059,7 +2075,7 @@ taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std
                 {
                     if (auto_del_key_if_empty_)
                     {
-                        dbDelete(c->db,key);
+                        dbDelete(db, key);
                         keyremoved = 1;
                     }
                     break;
@@ -2073,9 +2089,12 @@ taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std
         dictEntry *de;
         double score;
 
+        robj *mo   = allocateStringObj(STRING_NORMAL_SIZE);
+        auto guard = make_guard([&mo](){ releaseObj(mo);});
+
         for (auto &mem : vMembers)
         {
-            robj *mo = mem;
+            fillStringObj(mo, mem, 1);
             de = dictFind(zs->dict_, mo);
             if (de != NULL)
             {
@@ -2095,7 +2114,7 @@ taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std
                 {
                     if (auto_del_key_if_empty_)
                     {
-                        dbDelete(c->db,key);
+                        dbDelete(db,key);
                         keyremoved = 1;
                     }
                     break;
@@ -2231,6 +2250,12 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
     int iret = -1;
     PROC_BEGIN
 
+    if (sMember.empty())
+    {
+        iret = 0;
+        PROC_BREAK
+    }
+
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sK, iret);
 
@@ -2238,19 +2263,24 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
     if (zobj == NULL)
     {
         /* create one */
-        if (server.zset_max_ziplist_entries == 0 ||
-            server.zset_max_ziplist_value < sMember.size())
+        if (server.zset_max_ziplist_entries == 0 || server.zset_max_ziplist_value < sMember.size())
         {
             zobj = createZsetObject();
-        } else {
+        }
+        else
+        {
             zobj = createZsetZiplistObject();
         }
-        dbAdd(c->db,key,zobj);
+
+        dbAdd(db,key,zobj);
     }
     else
     {
         verifyRobjType(zobj, OBJ_ZSET, iret);
     }
+
+    robj *mo = createStringObject(sMember.data(), sMember.length());
+    auto guard = make_guard([&mo] () { decrRefCount(mo);});
 
     double curscore = 0.0;
     if (zobj->encoding == OBJ_ENCODING_ZIPLIST)
@@ -2258,11 +2288,10 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
         unsigned char *eptr;
 
         /* Prefer non-encoded element when dealing with ziplists. */
-        ele = sMember;
-        if ((eptr = zzlFind((unsigned char*)zobj->ptr,ele,&curscore)) != NULL)
+        if ((eptr = zzlFind((unsigned char*)zobj->ptr, mo, &curscore)) != NULL)
         {
             double score = curscore + increment;
-            if (isnan(score))
+            if (std::isnan(score))
             {
                 LOG->error() << __FUNCTION__ << "|not an valid float vluae"<< endl;
                 PROC_BREAK
@@ -2272,27 +2301,25 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
             if (fabs(score - curscore)<1e-12)
             {
                 zobj->ptr = zzlDelete((unsigned char*)zobj->ptr,eptr);
-                zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,ele,score);
+                zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,mo,score);
                 server.dirty++;
-                updated++;
             }
-            processed++;
         }
         else
         {
+            double score = increment;
+
             /* Optimize: check if the element is too large or the list
              * becomes too long *before* executing zzlInsert. */
-            zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,ele,score);
+            zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,mo,score);
 
             if (zzlLength((unsigned char*)zobj->ptr) > server.zset_max_ziplist_entries)
                 zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
 
-            if (sdslen((sds)ele->ptr) > server.zset_max_ziplist_value)
+            if (sdslen((sds)mo->ptr) > server.zset_max_ziplist_value)
                 zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
 
             server.dirty++;
-            added++;
-            processed++;
         }
     }
     else if (zobj->encoding == OBJ_ENCODING_SKIPLIST)
@@ -2301,15 +2328,14 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
         zskiplistNode *znode;
         dictEntry *de;
 
-        ele = sMember;
-        de = dictFind(zs->dict_,ele);
+        de = dictFind(zs->dict_, mo);
         if (de != NULL)
         {
-            curobj = (robj*)dictGetKey(de);
+            robj *curobj = (robj*)dictGetKey(de);
             curscore = *(double*)dictGetVal(de);
 
             double score = curscore + increment;
-            if (isnan(score))
+            if (std::isnan(score))
             {
                 LOG->error() << __FUNCTION__ << "|not an valid float vluae"<< endl;
                 PROC_BREAK;
@@ -2327,20 +2353,18 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
                 incrRefCount(curobj); /* Re-inserted in skiplist. */
                 dictGetVal(de) = &znode->score; /* Update score ptr. */
                 server.dirty++;
-                updated++;
             }
-            processed++;
         }
         else
         {
-            znode = zslInsert(zs->zsl,score,ele);
-            incrRefCount(ele); /* Inserted in skiplist. */
-            int tmpret = dictAdd(zs->dict_,ele,&znode->score);
+            double score = increment;
+
+            znode = zslInsert(zs->zsl,score,mo);
+            incrRefCount(mo); /* Inserted in skiplist. */
+            int tmpret = dictAdd(zs->dict_,mo,&znode->score);
             assert (tmpret == DICT_OK);
-            incrRefCount(ele); /* Added to dictionary. */
+            incrRefCount(mo); /* Added to dictionary. */
             server.dirty++;
-            added++;
-            processed++;
         }
     }
     else

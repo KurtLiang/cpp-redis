@@ -70,7 +70,7 @@ public:
 
     virtual taf::Int32 sunion(taf::Int32 appId,const vector<std::string> & vK,const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 zadd(taf::Int32 appId,const std::string & sK,const vector<Comm::ZsetScoreMember> & vScoreMember,const Comm::ZsetRobjOption & option,taf::JceCurrentPtr current);
+    virtual taf::Int32 zadd(taf::Int32 appId,const std::string & sK,const vector<Comm::ZsetScoreMember> & vScoreMembers,const Comm::ZsetRobjOption & option,taf::JceCurrentPtr current);
 
     virtual taf::Int32 zrem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
 
