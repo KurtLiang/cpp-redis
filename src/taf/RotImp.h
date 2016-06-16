@@ -30,19 +30,19 @@ public:
 
     virtual taf::Int32 append(taf::Int32 appId,const std::string & sK,const std::string & sV,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt, int &length, taf::JceCurrentPtr current);
+    virtual taf::Int32 push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt, taf::Int64 &length, taf::JceCurrentPtr current);
 
     virtual taf::Int32 pop(taf::Int32 appId,const std::string & sK,Comm::EListDirection dir,std::string &sItem,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 lindex(taf::Int32 appId,const std::string & sK,taf::Int32 index,std::string &sV,taf::JceCurrentPtr current);
+    virtual taf::Int32 lindex(taf::Int32 appId,const std::string & sK,taf::Int64 index,std::string &sV,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 lset(taf::Int32 appId,const std::string & sK,taf::Int32 index,const std::string & sV,taf::JceCurrentPtr current);
+    virtual taf::Int32 lset(taf::Int32 appId,const std::string & sK,taf::Int64 index,const std::string & sV,taf::JceCurrentPtr current);
 
     virtual taf::Int32 llen(taf::Int32 appId,const std::string & sK,taf::Int64 &length,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 lrem(taf::Int32 appId,const std::string & sK,taf::Int64 toremove,const std::string & sV,taf::JceCurrentPtr current);
+    virtual taf::Int32 lrem(taf::Int32 appId,const std::string & sK,taf::Int64 toremove,const std::string & sV,taf::Int64 &removed,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 lrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 end,vector<std::string> &vItems,taf::JceCurrentPtr current);
+    virtual taf::Int32 lrange(taf::Int32 appId,const std::string & sK,taf::Int64 start,taf::Int64 end,vector<std::string> &vItems,taf::JceCurrentPtr current);
 
     virtual taf::Int32 hmset(taf::Int32 appId,const std::string & sK,const map<std::string, std::string> & mFV,taf::JceCurrentPtr current);
 
@@ -58,7 +58,7 @@ public:
 
     virtual taf::Int32 srem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 spop(taf::Int32 appId,const std::string & sK,taf::Int32 count,vector<std::string> &vMembers,taf::JceCurrentPtr current);
+    virtual taf::Int32 spop(taf::Int32 appId,const std::string & sK,taf::Int64 count,vector<std::string> &vMembers,taf::JceCurrentPtr current);
 
     virtual taf::Int32 sismember(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 &is_mem,taf::JceCurrentPtr current);
 
@@ -74,15 +74,15 @@ public:
 
     virtual taf::Int32 zrem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 zrank(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 reverse,taf::Int32 &rank,taf::JceCurrentPtr current);
+    virtual taf::Int32 zrank(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 reverse,taf::Int64 &rank,taf::JceCurrentPtr current);
 
     virtual taf::Int32 zincrby(taf::Int32 appId,const std::string & sK,taf::Double increment,const std::string & sMember,taf::Double &new_score,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 zrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 end,const Comm::ZsetRangeOption & opt,vector<Comm::ZsetScoreMember> &vScoreMembers,taf::JceCurrentPtr current);
+    virtual taf::Int32 zrange(taf::Int32 appId,const std::string & sK,taf::Int64 start,taf::Int64 end,const Comm::ZsetRangeOption & opt,vector<Comm::ZsetScoreMember> &vScoreMembers,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &number,taf::JceCurrentPtr current);
+    virtual taf::Int32 del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int64 &number,taf::JceCurrentPtr current);
 
-    virtual taf::Int32 exists(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &number,taf::JceCurrentPtr current);
+    virtual taf::Int32 exists(taf::Int32 appId,const vector<std::string> & vKs,taf::Int64 &number,taf::JceCurrentPtr current);
 
     virtual taf::Int32 expire(taf::Int32 appId,const std::string & sK,taf::Int64 seconds,taf::JceCurrentPtr current);
 

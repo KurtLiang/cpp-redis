@@ -90,7 +90,7 @@ module Comm
         /**
          * @brief LPUSH/RPUSH/LPUSHX/RPUSHX
          */
-        int push(int appId, string sK, vector<string> vItems,  EListDirection dir, ListRobjOption opt, out int length);
+        int push(int appId, string sK, vector<string> vItems,  EListDirection dir, ListRobjOption opt, out long length);
 
         /**
          * @brief LPOP/RPOP
@@ -100,12 +100,12 @@ module Comm
         /**
          * @brief LINDEX key index
          */
-        int lindex(int appId, string sK, int index, out string sV);
+        int lindex(int appId, string sK, long index, out string sV);
 
         /**
          * @brief LSET key index value
          */
-        int lset(int appId, string sK, int index, string sV);
+        int lset(int appId, string sK, long index, string sV);
 
         /**
          * @brief LLEN key
@@ -120,12 +120,12 @@ module Comm
          *                      <0: remove them from the tail
          *                      =0: remove all
          */
-        int lrem(int appId, string sK, long toremove, string sV);
+        int lrem(int appId, string sK, long toremove, string sV, out long removed);
 
         /**
          * @brief LRANGE key start stop #[stop] is included
          */
-        int lrange(int appId, string sK, int start, int end, out vector<string> vItems);
+        int lrange(int appId, string sK, long start, long end, out vector<string> vItems);
 
 
         /*******************************************************/
@@ -174,7 +174,7 @@ module Comm
         /**
          * @brief SPOP key [count]
          */
-        int spop(int appId, string sK, int count, out vector<string> vMembers);
+        int spop(int appId, string sK, long count, out vector<string> vMembers);
 
         /**
          * @brief SISMEMBER key member
@@ -230,7 +230,7 @@ module Comm
          *                     1 rank order by desc
          * @param rank         zero-based
          */
-        int zrank(int appId, string sK, string sMember, int rev, out int rank);
+        int zrank(int appId, string sK, string sMember, int rev, out long rank);
 
         /**
          * @brief ZINCRBY key increment member
@@ -241,7 +241,7 @@ module Comm
         /**
          * @brief ZRANGE key start end
          */
-        int zrange(int appId, string sK, int start, int end, ZsetRangeOption opt, out vector<ZsetScoreMember> vScoreMembers);
+        int zrange(int appId, string sK, long start, long end, ZsetRangeOption opt, out vector<ZsetScoreMember> vScoreMembers);
 
         /*******************************************************/
         /*                 General                             */
@@ -252,13 +252,13 @@ module Comm
          *        ignore it if key doesn't exist
          * @number  number of keys deleted
          */
-        int del(int appId, vector<string> vKs, out int deleted);
+        int del(int appId, vector<string> vKs, out long deleted);
 
         /**
          * @brief EXISTS key [key...]
-         * @param  number  output number of keys exists
+         * @param  existed  output number of keys exists
          */
-        int exists(int appId, vector<string> vKs, out int existed);
+        int exists(int appId, vector<string> vKs, out long existed);
 
         /**
          * @brief EXPIRE key seconds

@@ -12,9 +12,11 @@
 #define STRING_NORMAL_SIZE  128
 #define STRING_LARGE_SIZE   1024
 
-//TOHACK need these?
-//signalModifiedKey(db, key);
-//notifyKeyspaceEvent();
+/*
+ * TOHACK need these?
+ * signalModifiedKey(db, key);
+ * notifyKeyspaceEvent();
+ */
 
 #define _SCOPE_GUARD_BEGIN {
 #define _SCOPE_GUARD_END   }
@@ -350,7 +352,6 @@ taf::Int32 RotImp::get(taf::Int32 appId,const std::string & sK,std::string &sV,t
 taf::Int32 RotImp::mget(taf::Int32 appId,const vector<std::string> & vKs, map<std::string, std::string> &mKVs, taf::JceCurrentPtr current)
 {
     int iret = -1;
-    int failed_n = 0;
 
     PROC_BEGIN
     __TRY__
@@ -361,25 +362,15 @@ taf::Int32 RotImp::mget(taf::Int32 appId,const vector<std::string> & vKs, map<st
     {
         robj *key = copyGetSharedKey(sK);
         if (key == nullptr)
-        {
-            ++failed_n;
             continue;
-        }
-
 
         robj *val = lookupKeyRead(db, key);
         if (val == NULL)
-        {
-            ++failed_n;
             continue;
-        }
 
         string sV = robj2string(val);
         if (sV.empty())
-        {
-            ++failed_n;
             continue;
-        }
 
         mKVs[sK] = sV;
     }
@@ -389,7 +380,7 @@ taf::Int32 RotImp::mget(taf::Int32 appId,const vector<std::string> & vKs, map<st
     __CATCH__
     PROC_END
 
-    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << "| failed get number:" << failed_n << endl;
+    FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
 }
 
@@ -562,7 +553,7 @@ taf::Int32 RotImp::append(taf::Int32 appId,const std::string & sK,const std::str
     return iret;
 }
 
-taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt, int &length, taf::JceCurrentPtr current)
+taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std::string> & vItems,Comm::EListDirection dir,const Comm::ListRobjOption & opt, taf::Int64 &length, taf::JceCurrentPtr current)
 {
     length = 0;
     int iret = -1;
@@ -666,7 +657,7 @@ taf::Int32 RotImp::pop(taf::Int32 appId,const std::string & sK,Comm::EListDirect
 }
 
 
-taf::Int32 RotImp::lindex(taf::Int32 appId,const std::string & sK,taf::Int32 index,std::string &sV,taf::JceCurrentPtr current)
+taf::Int32 RotImp::lindex(taf::Int32 appId,const std::string & sK,taf::Int64 index,std::string &sV,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN
@@ -708,7 +699,7 @@ taf::Int32 RotImp::lindex(taf::Int32 appId,const std::string & sK,taf::Int32 ind
     return iret;
 }
 
-taf::Int32 RotImp::lset(taf::Int32 appId,const std::string & sK,taf::Int32 index,const std::string & sV,taf::JceCurrentPtr current)
+taf::Int32 RotImp::lset(taf::Int32 appId,const std::string & sK,taf::Int64 index,const std::string & sV,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN
@@ -770,12 +761,12 @@ taf::Int32 RotImp::llen(taf::Int32 appId,const std::string & sK,taf::Int64 &leng
     return iret;
 }
 
-taf::Int32 RotImp::lrem(taf::Int32 appId,const std::string & sK,taf::Int64 toremove,const std::string & sV,taf::JceCurrentPtr current)
+taf::Int32 RotImp::lrem(taf::Int32 appId,const std::string & sK,taf::Int64 toremove,const std::string & sV,taf::Int64 &removed,taf::JceCurrentPtr current)
 {
+    removed = 0;
     int iret = -1;
-    PROC_BEGIN
 
-    long removed = 0;
+    PROC_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
@@ -840,7 +831,7 @@ taf::Int32 RotImp::lrem(taf::Int32 appId,const std::string & sK,taf::Int64 torem
     return iret;
 }
 
-taf::Int32 RotImp::lrange(taf::Int32 appId,const std::string & sK,taf::Int32 istart,taf::Int32 iend,vector<std::string> &vItems,taf::JceCurrentPtr current)
+taf::Int32 RotImp::lrange(taf::Int32 appId,const std::string & sK,taf::Int64 start,taf::Int64 end,vector<std::string> &vItems,taf::JceCurrentPtr current)
 {
     int iret = -1;
 
@@ -859,8 +850,6 @@ taf::Int32 RotImp::lrange(taf::Int32 appId,const std::string & sK,taf::Int32 ist
     verifyRobjType(lobj, OBJ_LIST, iret);
     verifyRobjEncoding(lobj, OBJ_ENCODING_QUICKLIST, iret);
 
-    long start = istart;
-    long end   = iend;
     long llen  = listTypeLength(lobj);
 
     /* adjust negative indexes */
@@ -947,7 +936,7 @@ taf::Int32 RotImp::hmset(taf::Int32 appId,const std::string & sK,const map<std::
     robj *val = allocateStringObj(STRING_NORMAL_SIZE);
     for (auto &fv : mFV)
     {
-        if (fillStringObj(fld, fv.second, 1))
+        if (fillStringObj(fld, fv.first, 1))
             continue;
 
         if (fillStringObj(val, fv.second, 1))
@@ -1319,12 +1308,12 @@ taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std
 }
 
 
-taf::Int32 RotImp::spop(taf::Int32 appId,const std::string & sK,taf::Int32 icount,vector<std::string> &vMembers,taf::JceCurrentPtr current)
+taf::Int32 RotImp::spop(taf::Int32 appId,const std::string & sK,taf::Int64 count,vector<std::string> &vMembers,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN
 
-    if (icount<=0)
+    if (count<=0)
     {
         PROC_BREAK
     }
@@ -1343,7 +1332,7 @@ taf::Int32 RotImp::spop(taf::Int32 appId,const std::string & sK,taf::Int32 icoun
     verifyRobjType(setobj, OBJ_SET, iret);
 
     long size = setTypeSize(setobj);
-    long count = std::min<long>(size, icount);
+    count = (size<count?size:count);
 
     while (count-- > 0)
     {
@@ -2143,7 +2132,7 @@ taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std
     return iret;
 }
 
-taf::Int32 RotImp::zrank(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 reverse,taf::Int32 &rank,taf::JceCurrentPtr current)
+taf::Int32 RotImp::zrank(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 reverse,taf::Int64 &rank,taf::JceCurrentPtr current)
 {
     rank = -1;
 
@@ -2380,7 +2369,7 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
     return iret;
 }
 
-taf::Int32 RotImp::zrange(taf::Int32 appId,const std::string & sK,taf::Int32 start,taf::Int32 end,const Comm::ZsetRangeOption & opt,vector<Comm::ZsetScoreMember> &vScoreMembers,taf::JceCurrentPtr current)
+taf::Int32 RotImp::zrange(taf::Int32 appId,const std::string & sK,taf::Int64 start,taf::Int64 end,const Comm::ZsetRangeOption & opt,vector<Comm::ZsetScoreMember> &vScoreMembers,taf::JceCurrentPtr current)
 {
     int iret = -1;
     PROC_BEGIN
@@ -2398,7 +2387,7 @@ taf::Int32 RotImp::zrange(taf::Int32 appId,const std::string & sK,taf::Int32 sta
     verifyRobjType(zobj, OBJ_ZSET, iret);
 
     /* Sanitize indexes. */
-    int llen = zsetLength(zobj);
+    long llen = zsetLength(zobj);
     if (start < 0) start = llen+start;
     if (end < 0)   end = llen+end;
     if (start < 0) start = 0;
@@ -2412,7 +2401,7 @@ taf::Int32 RotImp::zrange(taf::Int32 appId,const std::string & sK,taf::Int32 sta
     }
 
     if (end >= llen) end = llen-1;
-    int rangelen = (end-start)+1;
+    long rangelen = (end-start)+1;
     Comm::ZsetScoreMember sm;
 
     if (zobj->encoding == OBJ_ENCODING_ZIPLIST)
@@ -2521,7 +2510,7 @@ taf::Int32 RotImp::zrange(taf::Int32 appId,const std::string & sK,taf::Int32 sta
 }
 
 
-taf::Int32 RotImp::del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &deleted, taf::JceCurrentPtr current)
+taf::Int32 RotImp::del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int64 &deleted, taf::JceCurrentPtr current)
 {
     deleted=0;
     int iret = -1;
@@ -2552,7 +2541,7 @@ taf::Int32 RotImp::del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int
     return iret;
 }
 
-taf::Int32 RotImp::exists(taf::Int32 appId,const vector<std::string> & vKs,taf::Int32 &existed,taf::JceCurrentPtr current)
+taf::Int32 RotImp::exists(taf::Int32 appId,const vector<std::string> & vKs,taf::Int64 &existed,taf::JceCurrentPtr current)
 {
     int iret = -1;
     existed = 0;
