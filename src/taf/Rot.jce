@@ -202,7 +202,7 @@ module Comm
         int sdiff(int appId, vector<string> vK, string storeKey, out vector<string> vResults);
 
         /**
-         * @brief SUNION/SUNION key [key...]
+         * @brief SUNION/SUNIONSTORE key [key...]
          * @param   storeKey    where to store the results if not empty, otherwise output to vResults.
          * @param   vResults    output the results to it if storeKey is empty
          */

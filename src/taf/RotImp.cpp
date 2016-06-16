@@ -1438,7 +1438,7 @@ int sinterGenericProc(redisDb *db, const vector<std::string> & vK, const std::st
     robj *dstset = NULL;
 
     size_t setnum = setkeys.size();
-    for (size_t j = 0; j < setnum; j++)
+    for (size_t j = 0; j < setnum; ++j)
     {
         robj *setobj = dstkey ? lookupKeyWrite(db, setkeys[j]) : lookupKeyRead(db,setkeys[j]);
         if (!setobj)
@@ -1450,11 +1450,14 @@ int sinterGenericProc(redisDb *db, const vector<std::string> & vK, const std::st
                     server.dirty++;
                 }
             }
-            return -1;
+
+            LOG->debug() << __FUNCTION__ << "| set '" << ((sds)setkeys[j]->ptr) << "' is not found"<< endl;
+            return 0;
         }
 
-        if (setobj->encoding != OBJ_SET)
+        if (setobj->type != OBJ_SET)
         {
+            LOG->debug() << __FUNCTION__ << "|object type is wrong, expecting OBJ_SET, but we got '" << setobj->type << endl;
             return -1;
         }
 
@@ -1462,7 +1465,9 @@ int sinterGenericProc(redisDb *db, const vector<std::string> & vK, const std::st
     }
 
     if (srcset.empty())
-        return -1;
+        return 0;
+
+    setnum = srcset.size();
 
     /* sort from smallest to largest */
     std::sort(srcset.begin(), srcset.end(), [](robj *s1, robj *s2) -> bool { return setTypeSize(s1) < setTypeSize(s2);} );
@@ -1612,6 +1617,7 @@ taf::Int32 RotImp::sinter(taf::Int32 appId, const vector<std::string> & vK, cons
 
     if (vK.empty())
     {
+        iret = 0;
         PROC_BREAK
     }
 
@@ -1660,13 +1666,15 @@ int suniondiffGenericProc(redisDb *db, const vector<std::string> & vK, const std
             if (op == SET_OP_DIFF && tmpidx == 1)
             {
                 /* if diff and first  set can't be found then return */
-                return -1;
+                return 0;
             }
 
             continue;
         }
+
         if (setobj->type != OBJ_SET)
         {
+            LOG->debug() << __FUNCTION__ << "|object encoding is wrong, expecting OBJ_SET, but we got '" << setobj->type << endl;
             return -1;
         }
         srcset.push_back(setobj);
@@ -1674,7 +1682,7 @@ int suniondiffGenericProc(redisDb *db, const vector<std::string> & vK, const std
 
     if (srcset.empty())
     {
-        return -1;
+        return 0;
     }
 
     size_t setnum = srcset.size();
@@ -1709,7 +1717,7 @@ int suniondiffGenericProc(redisDb *db, const vector<std::string> & vK, const std
             /* With algorithm 1 it is better to order the sets to subtract
              * by decreasing size, so that we are more likely to find
              * duplicated elements ASAP. */
-            std::sort(srcset.begin()+1, srcset.begin(), [](robj *s1, robj *s2)->bool { return setTypeSize(s1) > setTypeSize(s2) ;});
+            std::sort(srcset.begin()+1, srcset.end(), [](robj *s1, robj *s2)->bool { return setTypeSize(s1) > setTypeSize(s2) ;});
         }
     }
 
@@ -1845,6 +1853,7 @@ taf::Int32 RotImp::sdiff(taf::Int32 appId,const vector<std::string> & vK, const 
 
     if (vK.empty())
     {
+        iret = 0;
         PROC_BREAK
     }
 
@@ -1864,6 +1873,7 @@ taf::Int32 RotImp::sunion(taf::Int32 appId,const vector<std::string> & vK, const
 
     if (vK.empty())
     {
+        iret = 0;
         PROC_BREAK
     }
 
