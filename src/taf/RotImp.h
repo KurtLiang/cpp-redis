@@ -88,6 +88,9 @@ public:
 
     virtual taf::Int32 ttl(taf::Int32 appId,const std::string & sK,taf::Int64 &seconds,taf::JceCurrentPtr current);
 
+    /* only for debug use */
+    virtual taf::Int32 keys(taf::Int32 appId,map<std::string, std::string> &mKeyTypes,taf::JceCurrentPtr current);
+
 protected:
     virtual int onDispatch(taf::JceCurrentPtr _current, vector<char> &_sResponseBuffer);
 

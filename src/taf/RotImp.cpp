@@ -2654,3 +2654,47 @@ taf::Int32 RotImp::ttl(taf::Int32 appId, const std::string & sK, /*out */taf::In
     return iret;
 }
 
+
+/* only for debug use */
+taf::Int32 RotImp::keys(taf::Int32 appId, map<std::string, std::string> &mKeyTypes,taf::JceCurrentPtr current)
+{
+    int iret = -1;
+
+    PROC_BEGIN
+
+    GetDb(db, appId, iret);
+
+    dictEntry *de;
+    dictIterator *di = dictGetSafeIterator(db->dict_);
+    while((de = dictNext(di)) != NULL)
+    {
+        sds key = (sds)dictGetKey(de);
+        robj *o = (robj*)dictGetVal(de);
+
+        const char *type;
+        switch(o->type)
+        {
+            case OBJ_STRING: type = "string"; break;
+            case OBJ_LIST: type = "list"; break;
+            case OBJ_SET: type = "set"; break;
+            case OBJ_ZSET: type = "zset"; break;
+            case OBJ_HASH: type = "hash"; break;
+            default: type = "unknown"; break;
+        }
+
+        robj *keyobj = createStringObject(key,sdslen(key));
+        if (expireIfNeeded(db, keyobj) == 0)
+        {
+            mKeyTypes[key] = type;
+        }
+        decrRefCount(keyobj);
+
+    }
+    dictReleaseIterator(di);
+
+    iret = 0;
+    PROC_END;
+
+    return iret;
+}
+

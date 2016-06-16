@@ -273,5 +273,13 @@ module Comm
          *                -2 if not existed or expired
          */
         int ttl(int appId, string sK, out long seconds);
+
+        /*******************************************************/
+        /*                 DEBUG                               */
+        /*******************************************************/
+        /**
+         * @brief KEYS *
+         */
+        int keys(int appId, out map<string, string> mKeyTypes);
     };
 };
