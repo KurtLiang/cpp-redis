@@ -1954,7 +1954,7 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
                     continue;
 
                 /* Remove and re-insert when score changed. */
-                if (fabs(sm.score - curscore)<1e-12)
+                if (fabs(sm.score - curscore) > 1e-12)
                 {
                     zobj->ptr = zzlDelete((unsigned char*)zobj->ptr,eptr);
                     zobj->ptr = zzlInsert((unsigned char*)zobj->ptr, mo, sm.score);
@@ -1998,7 +1998,7 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
                 /* Remove and re-insert when score changed. We can safely
                  * delete the key object from the skiplist, since the
                  * dictionary still has a reference to it. */
-                if (fabs(sm.score - curscore) < 1e-12)
+                if (fabs(sm.score - curscore) > 1e-12)
                 {
                     int tmpret = zslDelete(zs->zsl,curscore,curobj);
                     assert (tmpret);
@@ -2193,22 +2193,22 @@ taf::Int32 RotImp::zrank(taf::Int32 appId,const std::string & sK,const std::stri
         eptr = ziplistIndex(zl,0);
         sptr = ziplistNext(zl,eptr);
 
-        rank = 1;
+        long  rk = 1;
         while(eptr != NULL)
         {
             if (ziplistCompare(eptr, (const unsigned char*)sMember.data(), sMember.length()))  //equal
                 break;
 
-            rank++;
+            rk++;
             zzlNext(zl,&eptr,&sptr);
         }
 
         if (eptr != NULL)
         {
             if (reverse)
-                rank = llen-rank;
+                rank = llen-rk;
             else
-                rank = rank-1;
+                rank = rk-1;
         }
         else
         {
@@ -2228,11 +2228,12 @@ taf::Int32 RotImp::zrank(taf::Int32 appId,const std::string & sK,const std::stri
         if (de != NULL)
         {
             score = *(double*)dictGetVal(de);
-            rank = zslGetRank(zsl,score, member_o);
+            long rk = zslGetRank(zsl,score, member_o);
+
             if (reverse)
-                rank = llen - rank;
+                rank = llen - rk;
             else
-                rank = rank-1;
+                rank = rk-1;
         }
         else
         {
@@ -2310,12 +2311,14 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
             }
 
             /* Remove and re-insert when score changed. */
-            if (fabs(score - curscore)<1e-12)
+            if (fabs(score - curscore) > 1e-12)
             {
                 zobj->ptr = zzlDelete((unsigned char*)zobj->ptr,eptr);
                 zobj->ptr = zzlInsert((unsigned char*)zobj->ptr,mo,score);
                 server.dirty++;
             }
+
+            new_score = score;
         }
         else
         {
@@ -2332,6 +2335,7 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
                 zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
 
             server.dirty++;
+            new_score  = score;
         }
     }
     else if (zobj->encoding == OBJ_ENCODING_SKIPLIST)
@@ -2356,7 +2360,7 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
             /* Remove and re-insert when score changed. We can safely
              * delete the key object from the skiplist, since the
              * dictionary still has a reference to it. */
-            if (fabs(score - curscore) < 1e-12)
+            if (fabs(score - curscore) > 1e-12)
             {
                 int tmpret = zslDelete(zs->zsl,curscore,curobj);
                 assert (tmpret);
@@ -2366,6 +2370,8 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
                 dictGetVal(de) = &znode->score; /* Update score ptr. */
                 server.dirty++;
             }
+
+            new_score = score;
         }
         else
         {
@@ -2377,6 +2383,8 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
             assert (tmpret == DICT_OK);
             incrRefCount(mo); /* Added to dictionary. */
             server.dirty++;
+
+            new_score =  score;
         }
     }
     else

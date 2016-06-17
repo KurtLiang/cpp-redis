@@ -226,11 +226,11 @@ module Comm
         /**
          * @brief ZRANK/ZREVRANK key member
          *
-         * @param rev          0 rank order by asc
+         * @param reverse      0 rank order by asc
          *                     1 rank order by desc
          * @param rank         zero-based
          */
-        int zrank(int appId, string sK, string sMember, int rev, out long rank);
+        int zrank(int appId, string sK, string sMember, int reverse, out long rank);
 
         /**
          * @brief ZINCRBY key increment member
