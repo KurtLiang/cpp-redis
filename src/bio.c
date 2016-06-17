@@ -124,6 +124,7 @@ void bioInit(void) {
 }
 
 void bioCreateBackgroundJob(int type, void *arg1, void *arg2, void *arg3) {
+#ifndef REDIS_ON_TAF
     struct bio_job *job = (struct bio_job*)zmalloc(sizeof(*job));
 
     job->time = time(NULL);
@@ -135,6 +136,12 @@ void bioCreateBackgroundJob(int type, void *arg1, void *arg2, void *arg3) {
     bio_pending[type]++;
     pthread_cond_signal(&bio_condvar[type]);
     pthread_mutex_unlock(&bio_mutex[type]);
+#else
+    UNUSED(type);
+    UNUSED(arg1);
+    UNUSED(arg2);
+    UNUSED(arg3);
+#endif
 }
 
 void *bioProcessBackgroundJobs(void *arg) {

@@ -65,7 +65,11 @@
 #define _FILE_OFFSET_BITS 64
 
 //@Kurt hacked
+#ifdef  REDIS_ON_TAF
 #define __STDC_LIMIT_MACROS
 #define __STDC_CONSTANT_MACROS
+#define REDIS_NO_LUA
+#define REDIS_NO_CLUSTER
+#endif
 
 #endif

@@ -159,18 +159,25 @@ dep:
 
 .PHONY: dep
 
-persist-settings: distclean
-	echo STD=$(STD) >> .make-settings
-	echo WARN=$(WARN) >> .make-settings
-	echo OPT=$(OPT) >> .make-settings
-	echo MALLOC=$(MALLOC) >> .make-settings
-	echo CFLAGS=$(CFLAGS) >> .make-settings
-	echo LDFLAGS=$(LDFLAGS) >> .make-settings
-	echo REDIS_CFLAGS=$(REDIS_CFLAGS) >> .make-settings
-	echo REDIS_LDFLAGS=$(REDIS_LDFLAGS) >> .make-settings
-	echo PREV_FINAL_CFLAGS=$(FINAL_CFLAGS) >> .make-settings
-	echo PREV_FINAL_LDFLAGS=$(FINAL_LDFLAGS) >> .make-settings
+persist-settings:
+	@echo ":D"
+
+.PHONY: dist
+dist:
 	-(cd ../deps && $(MAKE) $(DEPENDENCY_TARGETS))
+
+#persist-settings: distclean
+#	echo STD=$(STD) >> .make-settings
+#	echo WARN=$(WARN) >> .make-settings
+#	echo OPT=$(OPT) >> .make-settings
+#	echo MALLOC=$(MALLOC) >> .make-settings
+#	echo CFLAGS=$(CFLAGS) >> .make-settings
+#	echo LDFLAGS=$(LDFLAGS) >> .make-settings
+#	echo REDIS_CFLAGS=$(REDIS_CFLAGS) >> .make-settings
+#	echo REDIS_LDFLAGS=$(REDIS_LDFLAGS) >> .make-settings
+#	echo PREV_FINAL_CFLAGS=$(FINAL_CFLAGS) >> .make-settings
+#	echo PREV_FINAL_LDFLAGS=$(FINAL_LDFLAGS) >> .make-settings
+#	-(cd ../deps && $(MAKE) $(DEPENDENCY_TARGETS))
 
 .PHONY: persist-settings
 
@@ -179,13 +186,13 @@ persist-settings: distclean
 	@touch $@
 
 # Clean everything, persist settings and build dependencies if anything changed
-ifneq ($(strip $(PREV_FINAL_CFLAGS)), $(strip $(FINAL_CFLAGS)))
-.make-prerequisites: persist-settings
-endif
-
-ifneq ($(strip $(PREV_FINAL_LDFLAGS)), $(strip $(FINAL_LDFLAGS)))
-.make-prerequisites: persist-settings
-endif
+#ifneq ($(strip $(PREV_FINAL_CFLAGS)), $(strip $(FINAL_CFLAGS)))
+#.make-prerequisites: persist-settings
+#endif
+#
+#ifneq ($(strip $(PREV_FINAL_LDFLAGS)), $(strip $(FINAL_LDFLAGS)))
+#.make-prerequisites: persist-settings
+#endif
 
 # redis-server
 $(REDIS_SERVER_NAME): $(REDIS_SERVER_OBJ)

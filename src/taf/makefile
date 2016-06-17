@@ -20,6 +20,7 @@ REDIS_DEP_LIB := $(REDIS_PATH)/../deps/jemalloc/lib/libjemalloc.a \
 				$(REDIS_PATH)/../deps/geohash-int/geohash_helper.o \
 				-ldl
 
+$(TARGET) : $(REDIS_LIB)
 
 #.PHONY: all
 
