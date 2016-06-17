@@ -21,6 +21,14 @@
 #define _SCOPE_GUARD_BEGIN {
 #define _SCOPE_GUARD_END   }
 
+#define PROC_EXCEPT_BEGIN \
+    PROC_BEGIN            \
+    __TRY__
+
+#define PROC_EXCEPT_END \
+    __CATCH__           \
+    PROC_END
+
 #define GetDb(db, appId, iret) \
     auto db = g_app.lookforDb(appId);   \
     if (db == nullptr)                  \
@@ -223,8 +231,7 @@ taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string
 {
     int iret = -1;
 
-    PROC_BEGIN
-    __TRY__
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
@@ -251,8 +258,7 @@ taf::Int32 RotImp::set(taf::Int32 appId,const std::string & sK,const std::string
 
     iret = 0;
 
-    __CATCH__
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -266,8 +272,7 @@ taf::Int32 RotImp::mset(taf::Int32 appId,const map<std::string, std::string> & m
 {
     int iret = -1;
 
-    PROC_BEGIN
-    __TRY__
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
 
@@ -311,8 +316,7 @@ taf::Int32 RotImp::mset(taf::Int32 appId,const map<std::string, std::string> & m
 
     iret =0;
 
-    __CATCH__
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -322,8 +326,7 @@ taf::Int32 RotImp::get(taf::Int32 appId,const std::string & sK,std::string &sV,t
 {
     int iret = -1;
 
-    PROC_BEGIN
-    __TRY__
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret)
@@ -342,8 +345,7 @@ taf::Int32 RotImp::get(taf::Int32 appId,const std::string & sK,std::string &sV,t
 
     iret = 0;
 
-    __CATCH__
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -353,8 +355,7 @@ taf::Int32 RotImp::mget(taf::Int32 appId,const vector<std::string> & vKs, map<st
 {
     int iret = -1;
 
-    PROC_BEGIN
-    __TRY__
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
 
@@ -377,8 +378,7 @@ taf::Int32 RotImp::mget(taf::Int32 appId,const vector<std::string> & vKs, map<st
 
     iret = 0;
 
-    __CATCH__
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -392,8 +392,7 @@ taf::Int32 RotImp::incrby(taf::Int32 appId, const std::string & sK, taf::Int64 i
     result = 0;
     int iret = -1;
 
-    PROC_BEGIN
-    __TRY__
+    PROC_EXCEPT_BEGIN
 
     long long value = 0;
 
@@ -443,8 +442,7 @@ taf::Int32 RotImp::incrby(taf::Int32 appId, const std::string & sK, taf::Int64 i
     result = value;
     iret = 0;
 
-    __CATCH__
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -456,7 +454,7 @@ taf::Int32 RotImp::incrbyfloat(taf::Int32 appId,const std::string & sK,taf::Doub
     result = 0;
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     long double value = 0;
 
@@ -493,7 +491,7 @@ taf::Int32 RotImp::incrbyfloat(taf::Int32 appId,const std::string & sK,taf::Doub
     result = value;
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -503,8 +501,7 @@ taf::Int32 RotImp::append(taf::Int32 appId,const std::string & sK,const std::str
 {
     int iret = -1;
 
-    PROC_BEGIN
-    __TRY__
+    PROC_EXCEPT_BEGIN
 
     if (sV.empty())
     {
@@ -544,10 +541,9 @@ taf::Int32 RotImp::append(taf::Int32 appId,const std::string & sK,const std::str
     }
 
     server.dirty++;
-
     iret = 0;
-    __CATCH__
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -558,8 +554,7 @@ taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std
     length = 0;
     int iret = -1;
 
-    PROC_BEGIN
-    __TRY__
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
@@ -606,8 +601,7 @@ taf::Int32 RotImp::push(taf::Int32 appId,const std::string & sK,const vector<std
     length = listTypeLength(lobj);
     iret = 0;
 
-    __CATCH__
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -617,7 +611,7 @@ taf::Int32 RotImp::pop(taf::Int32 appId,const std::string & sK,Comm::EListDirect
 {
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
@@ -648,9 +642,9 @@ taf::Int32 RotImp::pop(taf::Int32 appId,const std::string & sK,Comm::EListDirect
 
     decrRefCount(val);
     ++server.dirty;
-
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -660,7 +654,8 @@ taf::Int32 RotImp::pop(taf::Int32 appId,const std::string & sK,Comm::EListDirect
 taf::Int32 RotImp::lindex(taf::Int32 appId,const std::string & sK,taf::Int64 index,std::string &sV,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
@@ -693,7 +688,8 @@ taf::Int32 RotImp::lindex(taf::Int32 appId,const std::string & sK,taf::Int64 ind
     }
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -702,7 +698,8 @@ taf::Int32 RotImp::lindex(taf::Int32 appId,const std::string & sK,taf::Int64 ind
 taf::Int32 RotImp::lset(taf::Int32 appId,const std::string & sK,taf::Int64 index,const std::string & sV,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
@@ -728,7 +725,7 @@ taf::Int32 RotImp::lset(taf::Int32 appId,const std::string & sK,taf::Int64 index
     ++server.dirty;
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -739,7 +736,7 @@ taf::Int32 RotImp::llen(taf::Int32 appId,const std::string & sK,taf::Int64 &leng
     length = 0;
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
@@ -755,7 +752,8 @@ taf::Int32 RotImp::llen(taf::Int32 appId,const std::string & sK,taf::Int64 &leng
     length =listTypeLength(lobj);
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -766,7 +764,7 @@ taf::Int32 RotImp::lrem(taf::Int32 appId,const std::string & sK,taf::Int64 torem
     removed = 0;
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
@@ -823,9 +821,10 @@ taf::Int32 RotImp::lrem(taf::Int32 appId,const std::string & sK,taf::Int64 torem
     {
         LOG->debug() << __FUNCTION__ << "| list object removed since all elements deleted :" << sK << endl;
     }
+
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -835,7 +834,7 @@ taf::Int32 RotImp::lrange(taf::Int32 appId,const std::string & sK,taf::Int64 sta
 {
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sk, iret);
@@ -886,7 +885,8 @@ taf::Int32 RotImp::lrange(taf::Int32 appId,const std::string & sK,taf::Int64 sta
     listTypeReleaseIterator(iter);
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -896,7 +896,7 @@ taf::Int32 RotImp::hmset(taf::Int32 appId,const std::string & sK,const map<std::
 {
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     if (mFV.empty())
     {
@@ -950,7 +950,7 @@ taf::Int32 RotImp::hmset(taf::Int32 appId,const std::string & sK,const map<std::
     ++server.dirty;
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -959,9 +959,8 @@ taf::Int32 RotImp::hmset(taf::Int32 appId,const std::string & sK,const map<std::
 taf::Int32 RotImp::hmget(taf::Int32 appId,const std::string & sK,const vector<std::string> & vFields,map<std::string, std::string> &mFV,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    robj *fldobj = NULL;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sK, iret);
@@ -975,7 +974,8 @@ taf::Int32 RotImp::hmget(taf::Int32 appId,const std::string & sK,const vector<st
 
     verifyRobjType(hobj, OBJ_HASH, iret);
 
-    fldobj = allocateStringObj(HT_FIELD_SIZE);
+    robj *fldobj = allocateStringObj(HT_FIELD_SIZE);
+    auto guard = make_guard([&fldobj]() { releaseObj(fldobj); });
 
     int err_encoding = 0;
     string sval;
@@ -1027,9 +1027,8 @@ taf::Int32 RotImp::hmget(taf::Int32 appId,const std::string & sK,const vector<st
     }
 
     iret = 0;
-    PROC_END
 
-    releaseObj(fldobj);
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1038,7 +1037,8 @@ taf::Int32 RotImp::hmget(taf::Int32 appId,const std::string & sK,const vector<st
 taf::Int32 RotImp::hgetall(taf::Int32 appId,const std::string & sK,map<std::string, std::string> &mFV,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sK, iret);
@@ -1104,7 +1104,7 @@ taf::Int32 RotImp::hgetall(taf::Int32 appId,const std::string & sK,map<std::stri
 
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1113,9 +1113,9 @@ taf::Int32 RotImp::hgetall(taf::Int32 appId,const std::string & sK,map<std::stri
 taf::Int32 RotImp::hexists(taf::Int32 appId,const std::string & sK,const std::string & sField,taf::Int32 &existed,taf::JceCurrentPtr current)
 {
     existed = 0;
-
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sK, iret);
@@ -1130,6 +1130,8 @@ taf::Int32 RotImp::hexists(taf::Int32 appId,const std::string & sK,const std::st
     verifyRobjType(hobj, OBJ_HASH, iret);
 
     auto fldobj = allocateStringObj(HT_FIELD_SIZE);
+    auto guard = make_guard([&fldobj]() { releaseObj(fldobj); });
+
     if (fillStringObj(fldobj, sField))
     {
         PROC_BREAK
@@ -1137,11 +1139,10 @@ taf::Int32 RotImp::hexists(taf::Int32 appId,const std::string & sK,const std::st
 
     if (hashTypeExists(hobj, fldobj))
         existed = 1;
-    releaseObj(fldobj);
 
     iret =0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1150,8 +1151,8 @@ taf::Int32 RotImp::hexists(taf::Int32 appId,const std::string & sK,const std::st
 taf::Int32 RotImp::hdel(taf::Int32 appId,const std::string & sK,const vector<std::string> & vFields,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    robj *fldobj = NULL;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sK, iret);
@@ -1167,7 +1168,10 @@ taf::Int32 RotImp::hdel(taf::Int32 appId,const std::string & sK,const vector<std
 
     int deleted = 0;
     int keyremoved = 0;
-    fldobj = allocateStringObj(HT_FIELD_SIZE);
+
+    robj *fldobj = allocateStringObj(HT_FIELD_SIZE);
+    auto guard = make_guard([&fldobj]() { releaseObj(fldobj);});
+
     for (auto &sF : vFields)
     {
         if (fillStringObj(fldobj, sF))
@@ -1195,9 +1199,8 @@ taf::Int32 RotImp::hdel(taf::Int32 appId,const std::string & sK,const vector<std
     }
 
     iret = 0;
-    PROC_END
 
-    releaseObj(fldobj);
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1207,7 +1210,7 @@ taf::Int32 RotImp::sadd(taf::Int32 appId,const std::string & sK,const vector<std
 {
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     if (vMembers.empty())
     {
@@ -1248,7 +1251,7 @@ taf::Int32 RotImp::sadd(taf::Int32 appId,const std::string & sK,const vector<std
     server.dirty += added;
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1258,7 +1261,7 @@ taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std
 {
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     if (vMembers.empty())
     {
@@ -1301,7 +1304,7 @@ taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std
 
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1311,7 +1314,8 @@ taf::Int32 RotImp::srem(taf::Int32 appId,const std::string & sK,const vector<std
 taf::Int32 RotImp::spop(taf::Int32 appId,const std::string & sK,taf::Int64 count,vector<std::string> &vMembers,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     if (count<=0)
     {
@@ -1371,7 +1375,8 @@ taf::Int32 RotImp::spop(taf::Int32 appId,const std::string & sK,taf::Int64 count
     }
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1382,7 +1387,7 @@ taf::Int32 RotImp::sismember(taf::Int32 appId,const std::string & sK,const std::
     is_mem = 0;
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sK, iret);
@@ -1406,7 +1411,8 @@ taf::Int32 RotImp::sismember(taf::Int32 appId,const std::string & sK,const std::
     decrRefCount(mem_o);
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1593,8 +1599,8 @@ int sinterGenericProc(redisDb *db, const vector<std::string> & vK, const std::st
 taf::Int32 RotImp::smembers(taf::Int32 appId,const std::string & sK,vector<std::string> &vMembers,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
-    __TRY__
+
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
 
@@ -1602,8 +1608,7 @@ taf::Int32 RotImp::smembers(taf::Int32 appId,const std::string & sK,vector<std::
     vK.push_back(sK);
     iret = sinterGenericProc(db, vK, "", vMembers);
 
-    __CATCH__
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1612,8 +1617,8 @@ taf::Int32 RotImp::smembers(taf::Int32 appId,const std::string & sK,vector<std::
 taf::Int32 RotImp::sinter(taf::Int32 appId, const vector<std::string> & vK, const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
-    __TRY__
+
+    PROC_EXCEPT_BEGIN
 
     if (vK.empty())
     {
@@ -1624,8 +1629,7 @@ taf::Int32 RotImp::sinter(taf::Int32 appId, const vector<std::string> & vK, cons
     GetDb(db, appId, iret);
     iret = sinterGenericProc(db, vK, storeKey, vResults);
 
-    __CATCH__
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1849,7 +1853,8 @@ int suniondiffGenericProc(redisDb *db, const vector<std::string> & vK, const std
 taf::Int32 RotImp::sdiff(taf::Int32 appId,const vector<std::string> & vK, const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     if (vK.empty())
     {
@@ -1860,7 +1865,7 @@ taf::Int32 RotImp::sdiff(taf::Int32 appId,const vector<std::string> & vK, const 
     GetDb(db, appId, iret);
     iret = suniondiffGenericProc(db, vK, storeKey, vResults, SET_OP_DIFF);
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1869,7 +1874,8 @@ taf::Int32 RotImp::sdiff(taf::Int32 appId,const vector<std::string> & vK, const 
 taf::Int32 RotImp::sunion(taf::Int32 appId,const vector<std::string> & vK, const std::string & storeKey, vector<std::string> &vResults,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     if (vK.empty())
     {
@@ -1880,7 +1886,7 @@ taf::Int32 RotImp::sunion(taf::Int32 appId,const vector<std::string> & vK, const
     GetDb(db, appId, iret);
     iret = suniondiffGenericProc(db, vK, storeKey, vResults, SET_OP_UNION);
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -1890,7 +1896,8 @@ taf::Int32 RotImp::sunion(taf::Int32 appId,const vector<std::string> & vK, const
 taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Comm::ZsetScoreMember> & vScoreMembers,const Comm::ZsetRobjOption & option,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     if (vScoreMembers.empty())
     {
@@ -2030,7 +2037,8 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
     }
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -2039,7 +2047,9 @@ taf::Int32 RotImp::zadd(taf::Int32 appId,const std::string & sK,const vector<Com
 taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std::string> & vMembers,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
+
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sK, iret);
@@ -2136,7 +2146,8 @@ taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std
     }
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -2145,9 +2156,9 @@ taf::Int32 RotImp::zrem(taf::Int32 appId,const std::string & sK,const vector<std
 taf::Int32 RotImp::zrank(taf::Int32 appId,const std::string & sK,const std::string & sMember,taf::Int32 reverse,taf::Int64 &rank,taf::JceCurrentPtr current)
 {
     rank = -1;
-
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     if (sMember.empty())
     {
@@ -2238,7 +2249,8 @@ taf::Int32 RotImp::zrank(taf::Int32 appId,const std::string & sK,const std::stri
     }
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -2247,7 +2259,8 @@ taf::Int32 RotImp::zrank(taf::Int32 appId,const std::string & sK,const std::stri
 taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double increment,const std::string & sMember,taf::Double &new_score,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     if (sMember.empty())
     {
@@ -2373,7 +2386,8 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
     }
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -2382,7 +2396,8 @@ taf::Int32 RotImp::zincrby(taf::Int32 appId,const std::string & sK,taf::Double i
 taf::Int32 RotImp::zrange(taf::Int32 appId,const std::string & sK,taf::Int64 start,taf::Int64 end,const Comm::ZsetRangeOption & opt,vector<Comm::ZsetScoreMember> &vScoreMembers,taf::JceCurrentPtr current)
 {
     int iret = -1;
-    PROC_BEGIN
+
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sK, iret);
@@ -2513,7 +2528,8 @@ taf::Int32 RotImp::zrange(taf::Int32 appId,const std::string & sK,taf::Int64 sta
     }
 
     iret = 0;
-    PROC_END
+
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -2525,7 +2541,7 @@ taf::Int32 RotImp::del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int
     deleted=0;
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
 
@@ -2545,7 +2561,7 @@ taf::Int32 RotImp::del(taf::Int32 appId,const vector<std::string> & vKs,taf::Int
 
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -2556,7 +2572,7 @@ taf::Int32 RotImp::exists(taf::Int32 appId,const vector<std::string> & vKs,taf::
     int iret = -1;
     existed = 0;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
 
@@ -2573,7 +2589,7 @@ taf::Int32 RotImp::exists(taf::Int32 appId,const vector<std::string> & vKs,taf::
 
     iret = 0 ;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -2583,7 +2599,7 @@ taf::Int32 RotImp::expire(taf::Int32 appId, const std::string & sK, taf::Int64 s
 {
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     int is_persistent = (seconds < 0);
 
@@ -2610,7 +2626,7 @@ taf::Int32 RotImp::expire(taf::Int32 appId, const std::string & sK, taf::Int64 s
     ++server.dirty;
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -2622,7 +2638,7 @@ taf::Int32 RotImp::ttl(taf::Int32 appId, const std::string & sK, /*out */taf::In
 
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
     updateSharedKeyObj(key, sK, iret);
@@ -2647,7 +2663,7 @@ taf::Int32 RotImp::ttl(taf::Int32 appId, const std::string & sK, /*out */taf::In
 
     iret = 0;
 
-    PROC_END
+    PROC_EXCEPT_END
 
     FDLOG() << iret << "|" << __FUNCTION__ << "|" << appId << endl;
     return iret;
@@ -2659,7 +2675,7 @@ taf::Int32 RotImp::keys(taf::Int32 appId, map<std::string, std::string> &mKeyTyp
 {
     int iret = -1;
 
-    PROC_BEGIN
+    PROC_EXCEPT_BEGIN
 
     GetDb(db, appId, iret);
 
@@ -2692,7 +2708,8 @@ taf::Int32 RotImp::keys(taf::Int32 appId, map<std::string, std::string> &mKeyTyp
     dictReleaseIterator(di);
 
     iret = 0;
-    PROC_END;
+
+    PROC_EXCEPT_END;
 
     return iret;
 }
